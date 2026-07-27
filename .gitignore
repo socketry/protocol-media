@@ -1,5 +1,7 @@
+/agents.md
+/.context
 /.bundle
 /pkg
 /gems.locked
-/*.gem
 /.covered.db
+/external

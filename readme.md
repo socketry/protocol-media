@@ -2,7 +2,7 @@
 
 Provides a small representation of media types which can be shared by protocol implementations and registry backends.
 
-```ruby
+``` ruby
 require "protocol/media/type"
 
 type = Protocol::Media::Type.parse("text/plain")
