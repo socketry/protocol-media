@@ -1,0 +1,5 @@
+/.bundle
+/pkg
+/gems.locked
+/*.gem
+/.covered.db
