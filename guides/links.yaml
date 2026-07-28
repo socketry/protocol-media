@@ -1,0 +1,4 @@
+getting-started:
+  order: 1
+content-negotiation:
+  order: 2
