@@ -20,4 +20,14 @@ range = Protocol::Media::Range.parse("text/*")
 range.match?(type) # => true
 ```
 
-Registry data and indexed lookup are provided separately by `protocol-media-data`.
+Media maps associate supported media types with objects and select compatible entries:
+
+``` ruby
+require "protocol/media/map"
+
+map = Protocol::Media::Map.new
+map[type] = :text
+map[range] # => :text
+```
+
+Registry data and indexed lookup are provided separately by `protocol-media-registry`.

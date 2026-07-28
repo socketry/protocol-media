@@ -16,6 +16,18 @@ module Protocol
 			MEDIA_TYPE = /(?<type>#{TOKEN})\/(?<subtype>#{TOKEN})/
 			PARAMETER = /\s*;\s*(?<key>#{TOKEN})=((?<value>#{TOKEN})|(?<quoted_value>#{QUOTED_STRING}))/
 			
+			# Parse strings into media ranges while preserving compatible objects.
+			#
+			# @parameter value [String | Object] A media range string or compatible object.
+			# @returns [Range | Object] The parsed range or original object.
+			def self.for(value)
+				if value.is_a?(String)
+					parse(value)
+				else
+					value
+				end
+			end
+			
 			# Parse a media range.
 			#
 			# @parameter text [String] The media range, including any parameters.
