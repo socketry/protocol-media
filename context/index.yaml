@@ -1,0 +1,16 @@
+# Automatically generated context index for Utopia::Project guides.
+# Do not edit then files in this directory directly, instead edit the guides and then run `bake utopia:project:agent:context:update`.
+---
+description: Provides abstractions for working with media types.
+metadata:
+  documentation_uri: https://socketry.github.io/protocol-media/
+  source_code_uri: https://github.com/socketry/protocol-media.git
+files:
+- path: getting-started.md
+  title: Getting Started
+  description: This guide explains how to represent, compare, and map media types
+    with `protocol-media`.
+- path: content-negotiation.md
+  title: Content Negotiation
+  description: This guide explains how to combine `protocol-media` with an HTTP parser
+    to select an application representation.
