@@ -11,4 +11,13 @@ type.subtype # => "plain"
 type.parameters # => {"charset" => "utf-8"}
 ```
 
+Media ranges can represent wildcard types and match compatible concrete media types:
+
+``` ruby
+require "protocol/media/range"
+
+range = Protocol::Media::Range.parse("text/*")
+range.match?(type) # => true
+```
+
 Registry data and indexed lookup are provided separately by `protocol-media-data`.
