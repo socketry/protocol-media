@@ -9,7 +9,7 @@ HTTP content negotiation has two separate responsibilities:
   - The HTTP layer parses the `Accept` header and orders ranges according to HTTP quality and preference rules.
   - The application layer maps those ordered ranges to representations it can produce.
 
-Keeping this boundary explicit allows `protocol-http` to implement standard HTTP parsing without depending on `protocol-media`, while frameworks such as Utopia can use {ruby Protocol::Media::Map} for application policy.
+Keeping this boundary explicit allows `protocol-http` to implement standard HTTP parsing without depending on `protocol-media`, while application frameworks can use {ruby Protocol::Media::Map} for their own policy.
 
 ## Register Representations
 
