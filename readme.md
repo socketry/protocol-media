@@ -30,4 +30,4 @@ map[type] = :text
 map[range] # => :text
 ```
 
-Registry data and indexed lookup are provided separately by `protocol-media-data`.
+Registry data and indexed lookup are provided separately by `protocol-media-registry`.

@@ -9,6 +9,15 @@ require "protocol/media/type"
 describe Protocol::Media::Range do
 	let(:range) {subject.parse('text/*; profile="example"')}
 	
+	it "parses strings with .for" do
+		expect(subject.for("text/plain")).to be == subject.parse("text/plain")
+	end
+	
+	it "preserves compatible objects with .for" do
+		object = Struct.new(:type, :subtype).new("text", "plain")
+		expect(subject.for(object)).to be(:equal?, object)
+	end
+	
 	it "parses a media range" do
 		expect(range.type).to be == "text"
 		expect(range.subtype).to be == "*"

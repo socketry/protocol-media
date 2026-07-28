@@ -11,6 +11,7 @@ describe Protocol::Media::Map do
 	let(:json_type) {Protocol::Media::Type.parse("application/json")}
 	let(:html_type) {Protocol::Media::Type.parse("text/html")}
 	let(:plain_type) {Protocol::Media::Type.parse("text/plain")}
+	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
 	
 	before do
 		map[json_type] = :json
@@ -56,6 +57,15 @@ describe Protocol::Media::Map do
 		expect(map.for(ranges)).to be == [:plain, ranges.last]
 	end
 	
+	it "accepts compatible media range objects" do
+		ranges = [
+			compatible_range.new("IMAGE", "*", {}),
+			compatible_range.new("TEXT", "PLAIN", {"q" => "0.5"}),
+		]
+		
+		expect(map.for(ranges)).to be == [:plain, ranges.last]
+	end
+	
 	it "preserves string ranges when finding a preferred match" do
 		expect(map.for(["image/*", "application/json"])).to be == [:json, "application/json"]
 	end
@@ -63,10 +73,6 @@ describe Protocol::Media::Map do
 	it "returns nil when there is no compatible registration" do
 		expect(map["image/png"]).to be_nil
 		expect(map.for(["image/*"])).to be_nil
-	end
-	
-	it "rejects unsupported keys" do
-		expect{map[Object.new]}.to raise_exception(TypeError)
 	end
 	
 	it "can be frozen without freezing mapped objects" do

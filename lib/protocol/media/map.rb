@@ -16,22 +16,22 @@ module Protocol
 			
 			# Associate a media type or range with an object.
 			#
-			# @parameter range [Range | String] The media type or range.
+			# @parameter range [String | Object] The media type or compatible range.
 			# @parameter object [Object] The object associated with the range.
 			def []=(range, object)
-				range = coerce(range)
+				range = Range.for(range)
 				
-				@entries[range.name] = [range, object]
+				@entries[name(range)] = [range, object]
 			end
 			
 			# Find the object matching a media type or range.
 			#
 			# Exact type/subtype registrations take priority, followed by the first compatible registration.
 			#
-			# @parameter range [Range | String] The media type or range.
+			# @parameter range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
 			def [](range)
-				if entry = lookup(coerce(range))
+				if entry = lookup(Range.for(range))
 					entry.last
 				end
 			end
@@ -42,7 +42,7 @@ module Protocol
 			# @returns [Array(Object, Range | String) | nil] The matching object and original range, if one exists.
 			def for(ranges)
 				ranges.each do |range|
-					if entry = lookup(coerce(range))
+					if entry = lookup(Range.for(range))
 						return [entry.last, range]
 					end
 				end
@@ -64,25 +64,27 @@ module Protocol
 			
 			private
 			
-			def coerce(range)
-				case range
-				when Range
-					range
-				when String
-					Range.parse(range)
-				else
-					raise TypeError, "Expected a media range, got: #{range.class}"
-				end
+			def name(range)
+				"#{range.type.downcase}/#{range.subtype.downcase}"
 			end
 			
 			def lookup(range)
-				return @entries[range.name] if @entries.key?(range.name)
+				range_name = name(range)
+				return @entries[range_name] if @entries.key?(range_name)
 				
 				@entries.each_value do |entry|
-					return entry if range.match?(entry.first)
+					return entry if match?(range, entry.first)
 				end
 				
 				return nil
+			end
+			
+			def match?(left, right)
+				match_component?(left.type, right.type) && match_component?(left.subtype, right.subtype)
+			end
+			
+			def match_component?(left, right)
+				left == "*" || right == "*" || left.casecmp?(right)
 			end
 		end
 	end
