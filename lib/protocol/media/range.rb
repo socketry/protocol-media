@@ -166,29 +166,11 @@ module Protocol
 			#
 			# @parameter other [Object] The object to compare.
 			# @returns [Boolean] Whether the values are equal.
-			def ==(other)
-				# Only media ranges of the same class can be equal:
-				unless other.instance_of?(self.class)
-					return false
-				end
-				
-				# Every component must be equal:
-				unless @type == other.type
-					return false
-				end
-				
-				unless @subtype == other.subtype
-					return false
-				end
-				
-				unless @parameters == other.parameters
-					return false
-				end
-				
-				return true
+			def eql?(other)
+				other.instance_of?(self.class) && @type.eql?(other.type) && @subtype.eql?(other.subtype) && @parameters.eql?(other.parameters)
 			end
 			
-			alias eql? ==
+			alias == eql?
 			
 			# Generate a hash key consistent with {#eql?}.
 			#
