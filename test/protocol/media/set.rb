@@ -30,17 +30,14 @@ describe Protocol::Media::Set do
 		expect(set).to be(:frozen?)
 	end
 	
-	it "builds independent immutable snapshots" do
+	it "relinquishes the builder index when built" do
 		builder = subject::Builder.new
 		builder << "application/json"
-		first = builder.build
-		builder << "text/plain"
-		second = builder.build
+		set = builder.build
 		
-		expect(first).not.to be(:include?, "text/plain")
-		expect(second).to be(:include?, "text/plain")
-		expect(first).to be(:frozen?)
-		expect(second).to be(:frozen?)
+		expect{builder << "text/plain"}.to raise_exception(FrozenError)
+		expect(set).to be(:include?, "application/json")
+		expect(set).to be(:frozen?)
 	end
 	
 	it "matches compatible media types" do

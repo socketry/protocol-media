@@ -34,17 +34,14 @@ describe Protocol::Media::Map do
 		expect(map).to be(:frozen?)
 	end
 	
-	it "builds independent immutable snapshots" do
+	it "relinquishes the builder index when built" do
 		builder = subject::Builder.new
 		builder["application/json"] = :json
-		first = builder.build
-		builder["text/plain"] = :plain
-		second = builder.build
+		map = builder.build
 		
-		expect(first["text/plain"]).to be_nil
-		expect(second["text/plain"]).to be == :plain
-		expect(first).to be(:frozen?)
-		expect(second).to be(:frozen?)
+		expect{builder["text/plain"] = :plain}.to raise_exception(FrozenError)
+		expect(map["application/json"]).to be == :json
+		expect(map).to be(:frozen?)
 	end
 	
 	it "looks up exact media types" do

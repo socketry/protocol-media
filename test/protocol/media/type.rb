@@ -46,6 +46,23 @@ describe Protocol::Media::Type do
 	
 	it "normalizes names" do
 		expect(subject.parse("TEXT/PLAIN").name).to be == "text/plain"
+		expect(subject.for("TEXT/PLAIN").name).to be == "text/plain"
+	end
+	
+	it "normalizes compatible media type objects" do
+		parameters = {"charset" => "utf-8"}
+		compatible = Struct.new(:type, :subtype, :parameters).new("TEXT", "PLAIN", parameters)
+		media_type = subject.for(compatible)
+		
+		expect(media_type).to be_a(subject)
+		expect(media_type.name).to be == "text/plain"
+		expect(media_type.parameters).to be(:equal?, parameters)
+	end
+	
+	it "rejects compatible media range objects with wildcards" do
+		compatible = Struct.new(:type, :subtype, :parameters).new("text", "*", {})
+		
+		expect{subject.for(compatible)}.to raise_exception(ArgumentError)
 	end
 	
 	it "compares equivalent values" do

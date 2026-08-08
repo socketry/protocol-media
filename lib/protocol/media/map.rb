@@ -21,8 +21,7 @@ module Protocol
 				# @parameter media_type [String | Object] The concrete media type or compatible object.
 				# @parameter object [Object] The object associated with the media type.
 				def []=(media_type, object)
-					media_type = Range.for(media_type)
-					media_type = Type.new(media_type.type.downcase, media_type.subtype.downcase)
+					media_type = Type.for(media_type)
 					
 					# Preserve the first registration as the default for wildcard queries:
 					@index["*/*"] ||= object
@@ -33,7 +32,7 @@ module Protocol
 				# Compile the current registrations into an immutable map.
 				# @returns [Map] The immutable media map.
 				def build
-					return Map.send(:new, @index.dup.freeze).freeze
+					return Map.new(@index).freeze
 				end
 			end
 			
@@ -64,6 +63,23 @@ module Protocol
 				end
 			end
 			
+			# Initialize a new media map with a given index.
+			#
+			# @parameter index [Hash] The keyed media range entries.
+			def initialize(index)
+				@index = index
+			end
+			
+			# Freeze the media map and its index.
+			# @returns [self]
+			def freeze
+				return self if frozen?
+				
+				@index.freeze
+				
+				return super
+			end
+			
 			# Find the object matching a media type or range.
 			#
 			# @parameter range [String | Object] The media type or compatible range.
@@ -88,14 +104,8 @@ module Protocol
 			
 			private
 			
-			def initialize(index)
-				@index = index
-			end
-			
-			private_class_method :new
-			
 			def lookup(range)
-				range = Range.new(range.type.downcase, range.subtype.downcase)
+				range = Range.build(range.type, range.subtype)
 				return @index[range.name]
 			end
 		end

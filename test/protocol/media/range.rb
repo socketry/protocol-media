@@ -31,10 +31,21 @@ describe Protocol::Media::Range do
 	
 	it "normalizes names" do
 		expect(subject.parse("TEXT/*").name).to be == "text/*"
+		expect(subject.build("TEXT", "PLAIN").name).to be == "text/plain"
 	end
 	
 	it "preserves constructed names" do
 		expect(subject.new("TEXT", "PLAIN").name).to be == "TEXT/PLAIN"
+	end
+	
+	it "freezes its values" do
+		range = subject.new(+"TEXT", +"PLAIN", {})
+		range.freeze
+		
+		expect(range.freeze).to be(:equal?, range)
+		expect(range.type).to be(:frozen?)
+		expect(range.subtype).to be(:frozen?)
+		expect(range.parameters).to be(:frozen?)
 	end
 	
 	it "rejects invalid wildcard forms" do

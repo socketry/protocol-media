@@ -17,15 +17,17 @@ module Protocol
 			class Any
 				include Enumerable
 				
-				RANGE = Range.new("*", "*", {}.freeze).freeze
+				RANGE = Range.new("*", "*").freeze
 				private_constant :RANGE
 				
 				# Whether the set contains a compatible media type or range.
 				# @parameter range [String | Object] The media type or range to validate.
 				# @returns [Boolean]
-				def include?(range)
-					range = Range.for(range)
-					Range.new(range.type.downcase, range.subtype.downcase)
+				def include?(media_range)
+					media_range = Range.for(media_range)
+					
+					Range.build(media_range.type, media_range.subtype)
+					
 					return true
 				end
 				
@@ -39,6 +41,7 @@ module Protocol
 					return to_enum unless block_given?
 					
 					yield RANGE
+					
 					return self
 				end
 				
@@ -75,7 +78,7 @@ module Protocol
 					end
 					
 					range = Range.for(range)
-					range = Range.new(range.type.downcase, range.subtype.downcase)
+					range = Range.build(range.type, range.subtype)
 					type = range.type.freeze
 					subtype = range.subtype.freeze
 					
@@ -103,15 +106,7 @@ module Protocol
 						return @types
 					end
 					
-					index = @types.to_h do |type, subtypes|
-						if subtypes.instance_of?(Any)
-							[type, subtypes]
-						else
-							[type, subtypes.dup.freeze]
-						end
-					end
-					
-					return Set.send(:new, index.freeze).freeze
+					return Set.new(@types).freeze
 				end
 			end
 			
@@ -142,6 +137,24 @@ module Protocol
 						builder << range
 					end
 				end
+			end
+			
+			# Initialize a new media set with the given type index.
+			#
+			# @parameter types [Hash] The indexed media ranges.
+			def initialize(types)
+				@types = types
+			end
+			
+			# Freeze the media set and its index.
+			# @returns [self]
+			def freeze
+				return self if frozen?
+				
+				@types.each_value(&:freeze)
+				@types.freeze
+				
+				return super
 			end
 			
 			# Whether the set contains a compatible media type or range.
@@ -205,15 +218,9 @@ module Protocol
 			
 			private
 			
-			def initialize(types)
-				@types = types
-			end
-			
-			private_class_method :new
-			
 			def normalize(range)
 				range = Range.for(range)
-				return Range.new(range.type.downcase, range.subtype.downcase)
+				return Range.build(range.type, range.subtype)
 			end
 		end
 	end
