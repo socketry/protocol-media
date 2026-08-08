@@ -54,10 +54,10 @@ module Protocol
 			#
 			# @returns [self] The frozen map.
 			def freeze
-				unless frozen?
-					@entries.each_value(&:freeze)
-					@entries.freeze
-				end
+				return self if self.frozen?
+				
+				@entries.each_value(&:freeze)
+				@entries.freeze
 				
 				super
 			end

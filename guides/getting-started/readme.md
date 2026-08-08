@@ -12,10 +12,11 @@ $ bundle add protocol-media
 
 ## Core Concepts
 
-Applications commonly need to identify response formats, compare wildcard ranges, and associate formats with handlers. `protocol-media` separates those concerns into three small objects:
+Applications commonly need to identify response formats, compare wildcard ranges, collect accepted formats, and associate formats with handlers. `protocol-media` separates those concerns into four small objects:
 
   - {ruby Protocol::Media::Type} represents a concrete media type such as `application/json`.
   - {ruby Protocol::Media::Range} represents a concrete or wildcard range such as `text/*`.
+  - {ruby Protocol::Media::Set} collects accepted media ranges and tests compatible membership.
   - {ruby Protocol::Media::Map} associates supported types or ranges with application objects.
 
 The gem deliberately does not parse HTTP headers or provide a media type registry. Protocol implementations can supply compatible range objects, while registry data and extension lookup are provided by `protocol-media-registry`.
@@ -81,6 +82,31 @@ Protocol::Media::Range.for(http_range).equal?(http_range)
 ```
 
 Compatible objects must expose `type` and `subtype`. Other attributes, such as HTTP quality factors, remain owned by the protocol-specific object.
+
+## Media Sets
+
+Use {ruby Protocol::Media::Set} when validating a media type against several accepted ranges:
+
+``` ruby
+require "protocol/media/set"
+require "protocol/media/type"
+
+accepted = Protocol::Media::Set.new("image/*", "application/pdf")
+media_type = Protocol::Media::Type.parse("image/png")
+
+accepted.include?(media_type)
+# => true
+```
+
+Strings are parsed with {ruby Protocol::Media::Range.for}, while compatible range objects are preserved. Add ranges with {ruby Protocol::Media::Set#add} or `<<`. Adding the same normalized type and subtype replaces the existing entry, and parameters do not affect matching:
+
+``` ruby
+accepted << "text/plain"
+accepted.include?("text/plain; charset=utf-8")
+# => true
+```
+
+Sets preserve insertion order when enumerated and expose their registered ranges with {ruby Protocol::Media::Set#each}. Use a set for compatible membership and a {ruby Protocol::Media::Map} when each range needs an associated handler or other value.
 
 ## Media Maps
 
