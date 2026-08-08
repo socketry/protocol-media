@@ -91,17 +91,21 @@ Use {ruby Protocol::Media::Set} when validating a media type against several acc
 require "protocol/media/set"
 require "protocol/media/type"
 
-accepted = Protocol::Media::Set.new("image/*", "application/pdf")
+accepted = Protocol::Media::Set.for(["image/*", "application/pdf"])
 media_type = Protocol::Media::Type.parse("image/png")
 
 accepted.include?(media_type)
 # => true
 ```
 
-Strings are parsed with {ruby Protocol::Media::Range.for}. Add ranges with {ruby Protocol::Media::Set#add} or `<<`. Parameters do not affect membership:
+Strings are parsed with {ruby Protocol::Media::Range.for}. Sets are immutable and parameters do not affect membership:
 
 ``` ruby
-accepted << "text/plain"
+accepted = Protocol::Media::Set.build do |builder|
+	builder << "image/*"
+	builder << "text/plain"
+end
+
 accepted.include?("text/plain; charset=utf-8")
 # => true
 ```
@@ -116,9 +120,10 @@ Use {ruby Protocol::Media::Map} when an application supports several representat
 require "json"
 require "protocol/media/map"
 
-renderers = Protocol::Media::Map.new
-renderers["application/json"] = ->(record){JSON.generate(record)}
-renderers["text/plain"] = ->(record){record.inspect}
+renderers = Protocol::Media::Map.build do |builder|
+	builder["application/json"] = ->(record){JSON.generate(record)}
+	builder["text/plain"] = ->(record){record.inspect}
+end
 
 renderer = renderers["text/*"]
 renderer.call({id: 10, name: "Example"})
@@ -130,8 +135,11 @@ Concrete registrations populate their exact key and the first available `type/*`
 Parameters do not distinguish map entries:
 
 ``` ruby
-renderers["application/json; version=2"] = :versioned_json
-renderers["application/json"]
+versioned = Protocol::Media::Map.for(
+	"application/json; version=2" => :versioned_json,
+)
+
+versioned["application/json"]
 # => :versioned_json
 ```
 

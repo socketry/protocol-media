@@ -7,16 +7,40 @@ require "protocol/media/map"
 require "protocol/media/type"
 
 describe Protocol::Media::Map do
-	let(:map) {subject.new}
 	let(:json_type) {Protocol::Media::Type.parse("application/json")}
 	let(:html_type) {Protocol::Media::Type.parse("text/html")}
 	let(:plain_type) {Protocol::Media::Type.parse("text/plain")}
 	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
+	let(:map) do
+		subject.for(
+			json_type => :json,
+			html_type => :html,
+			plain_type => :plain,
+		)
+	end
 	
-	before do
-		map[json_type] = :json
-		map[html_type] = :html
-		map[plain_type] = :plain
+	it "constructs immutable maps from keyed entries" do
+		expect(map).to be(:frozen?)
+		expect(subject.for(map)).to be(:equal?, map)
+		expect{map["application/xml"] = :xml}.to raise_exception(NoMethodError)
+	end
+	
+	it "constructs immutable maps with a builder" do
+		map = subject.build do |builder|
+			builder["application/json"] = :json
+		end
+		
+		expect(map["application/json"]).to be == :json
+		expect(map).to be(:frozen?)
+	end
+	
+	it "finalizes builders once" do
+		builder = subject::Builder.new
+		builder["application/json"] = :json
+		map = builder.build
+		
+		expect(builder.build).to be(:equal?, map)
+		expect{builder["text/plain"] = :plain}.to raise_exception(FrozenError)
 	end
 	
 	it "looks up exact media types" do
@@ -30,8 +54,13 @@ describe Protocol::Media::Map do
 	end
 	
 	it "prefers an exact range registration" do
-		map["text/*"] = :text
-		map["*/*"] = :default
+		map = subject.build do |builder|
+			builder[json_type] = :json
+			builder[html_type] = :html
+			builder[plain_type] = :plain
+			builder["text/*"] = :text
+			builder["*/*"] = :default
+		end
 		
 		expect(map["text/*"]).to be == :text
 		expect(map["*/*"]).to be == :default
@@ -39,10 +68,11 @@ describe Protocol::Media::Map do
 	end
 	
 	it "prefers explicit wildcard registrations by specificity" do
-		map = subject.new
-		map["*/*"] = :default
-		map["text/plain"] = :plain
-		map["text/*"] = :text
+		map = subject.for(
+			"*/*" => :default,
+			"text/plain" => :plain,
+			"text/*" => :text,
+		)
 		
 		expect(map["text/html"]).to be == :text
 		expect(map["text/*"]).to be == :text
@@ -50,43 +80,50 @@ describe Protocol::Media::Map do
 	end
 	
 	it "uses the first registration for wildcard queries" do
-		map = subject.new
-		map["application/json"] = :json
-		map["text/plain"] = :plain
+		map = subject.for(
+			"application/json" => :json,
+			"text/plain" => :plain,
+		)
 		
 		expect(map["text/*"]).to be == :plain
 		expect(map["*/*"]).to be == :json
 	end
 	
 	it "uses explicitly registered wildcard fallbacks" do
-		map = subject.new
-		map["text/*"] = :text
-		map["*/*"] = :default
+		map = subject.for(
+			"text/*" => :text,
+			"*/*" => :default,
+		)
 		
 		expect(map["text/html"]).to be == :text
 		expect(map["image/png"]).to be == :default
 	end
 	
 	it "replaces an existing type/subtype registration" do
-		map[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
+		map = subject.build do |builder|
+			builder[json_type] = :json
+			builder[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
+		end
 		
 		expect(map[json_type]).to be == :versioned_json
 		expect(map["application/*"]).to be == :versioned_json
 	end
 	
 	it "replaces type wildcard registrations" do
-		map = subject.new
-		map["text/*"] = :old_text
-		map["text/*"] = :new_text
+		map = subject.build do |builder|
+			builder["text/*"] = :old_text
+			builder["text/*"] = :new_text
+		end
 		
 		expect(map["text/*"]).to be == :new_text
 		expect(map["*/*"]).to be == :new_text
 	end
 	
 	it "replaces universal wildcard registrations" do
-		map = subject.new
-		map["*/*"] = :old_default
-		map["*/*"] = :new_default
+		map = subject.build do |builder|
+			builder["*/*"] = :old_default
+			builder["*/*"] = :new_default
+		end
 		
 		expect(map["*/*"]).to be == :new_default
 	end
@@ -122,14 +159,20 @@ describe Protocol::Media::Map do
 		expect(map.for(["image/*"])).to be_nil
 	end
 	
-	it "can be frozen without freezing mapped objects" do
-		object = Object.new
-		map["application/xml"] = object
-		map.freeze
+	it "preserves falsey mapped objects" do
+		map = subject.for("application/json" => false, "application/xml" => nil)
 		
-		expect(map.freeze).to be(:equal?, map)
-		expect(map).to be(:frozen?)
+		expect(map["application/json"]).to be == false
+		expect(map.for(["application/json"])).to be == [false, "application/json"]
+		expect(map["application/xml"]).to be_nil
+		expect(map.for(["application/xml"])).to be == [nil, "application/xml"]
+	end
+	
+	it "does not freeze mapped objects" do
+		object = Object.new
+		map = subject.for("application/xml" => object)
+		
 		expect(object).not.to be(:frozen?)
-		expect{map["text/xml"] = Object.new}.to raise_exception(FrozenError)
+		expect(map["application/xml"]).to be(:equal?, object)
 	end
 end

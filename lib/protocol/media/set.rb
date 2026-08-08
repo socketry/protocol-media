@@ -9,7 +9,7 @@ require "set"
 
 module Protocol
 	module Media
-		# A set of compatible media ranges.
+		# An immutable set of compatible media ranges.
 		class Set
 			include Enumerable
 			
@@ -65,9 +65,9 @@ module Protocol
 				# @returns [Types | Any] The current or widened collection.
 				def add(type, subtype)
 					if type == "*"
-						return Any.new
+						return ANY
 					elsif subtype == "*"
-						@types[type] = Any.new
+						@types[type] = ANY
 					elsif subtypes = @types[type]
 						subtypes.add(subtype)
 					else
@@ -139,39 +139,82 @@ module Protocol
 				end
 			end
 			
-			private_constant :Any, :Types
+			ANY = Any.new.freeze
 			
-			# Initialize a set with the given media ranges.
-			# @parameter ranges [Array(String, Object)] The initial media ranges.
-			def initialize(*ranges)
-				@types = Types.new
+			private_constant :Any, :Types, :ANY
+			
+			# Incrementally constructs an immutable media set.
+			class Builder
+				# Initialize an empty media set builder.
+				def initialize
+					@types = Types.new
+				end
 				
-				ranges.each do |range|
-					self.add(range)
+				# Add a media range to the set under construction.
+				# @parameter range [String | Object] The media range or compatible object.
+				# @returns [self]
+				def add(range)
+					if frozen?
+						raise FrozenError, "can't modify frozen #{self.class}"
+					end
+					
+					range = Range.for(range)
+					range = Range.new(range.type, range.subtype)
+					type = range.type.freeze
+					subtype = range.subtype.freeze
+					@types = @types.add(type, subtype)
+					
+					return self
+				end
+				
+				alias << add
+				
+				# Compile the current ranges into an immutable set.
+				# @returns [Set] The immutable media set.
+				def build
+					return @result if defined?(@result)
+					
+					@types.freeze
+					@result = Set.send(:new, @types)
+					freeze
+					
+					return @result
 				end
 			end
 			
-			# Add a media range to the set.
-			# @parameter range [String | Object] The media range or compatible object.
-			# @returns [self]
-			def add(range)
-				if frozen?
-					raise FrozenError, "can't modify frozen #{self.class}"
+			# Construct an immutable set using a builder.
+			# @yields {|builder| ...} The mutable builder.
+			# @returns [Set] The immutable media set.
+			def self.build
+				builder = Builder.new
+				
+				if block_given?
+					yield builder
 				end
 				
-				range = canonical(Range.for(range))
-				@types = @types.add(range.type, range.subtype)
-				
-				return self
+				return builder.build
 			end
 			
-			alias << add
+			# Convert a sequence of ranges into an immutable media set.
+			#
+			# @parameter ranges [Set | Enumerable] The existing set or media ranges.
+			# @returns [Set] The immutable media set.
+			def self.for(ranges)
+				return ranges if ranges.instance_of?(self)
+				
+				return build do |builder|
+					ranges.each do |range|
+						builder << range
+					end
+				end
+			end
 			
 			# Whether the set contains a compatible media type or range.
 			# @parameter range [String | Object] The media type or range to match.
 			# @returns [Boolean]
 			def include?(range)
-				range = canonical(Range.for(range))
+				range = Range.for(range)
+				range = Range.new(range.type, range.subtype)
 				
 				return @types.include?(range.type, range.subtype)
 			end
@@ -186,7 +229,10 @@ module Protocol
 				return to_enum unless block_given?
 				
 				@types.each do |type, subtype|
-					yield canonical(Range.new(type, subtype))
+					range = Range.new(type, subtype, {}.freeze)
+					range.type.freeze
+					range.subtype.freeze
+					yield range.freeze
 				end
 				
 				return self
@@ -204,23 +250,14 @@ module Protocol
 				return @types.empty?
 			end
 			
-			# Freeze the set and its internal indexes.
-			# @returns [self]
-			def freeze
-				return self if self.frozen?
-				
-				@types.freeze
-				super
-			end
-			
 			private
 			
-			def canonical(range)
-				range = Range.new(range.type, range.subtype, {}.freeze)
-				range.type.freeze
-				range.subtype.freeze
-				return range.freeze
+			def initialize(types)
+				@types = types
+				freeze
 			end
+			
+			private_class_method :new
 		end
 	end
 end

@@ -7,12 +7,37 @@ require "protocol/media/set"
 require "protocol/media/type"
 
 describe Protocol::Media::Set do
-	let(:set) {subject.new("image/*", "application/pdf")}
+	let(:set) {subject.for(["image/*", "application/pdf"])}
 	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
-
+	
 	it "hides its implementation classes" do
 		expect{subject::Any}.to raise_exception(NameError)
 		expect{subject::Types}.to raise_exception(NameError)
+		expect{subject::ANY}.to raise_exception(NameError)
+	end
+	
+	it "constructs immutable sets from ranges" do
+		expect(set).to be(:frozen?)
+		expect(subject.for(set)).to be(:equal?, set)
+		expect{set << "text/plain"}.to raise_exception(NoMethodError)
+	end
+	
+	it "constructs immutable sets with a builder" do
+		set = subject.build do |builder|
+			builder << "application/json"
+		end
+		
+		expect(set).to be(:include?, "application/json")
+		expect(set).to be(:frozen?)
+	end
+	
+	it "finalizes builders once" do
+		builder = subject::Builder.new
+		builder << "application/json"
+		set = builder.build
+		
+		expect(builder.build).to be(:equal?, set)
+		expect{builder << "text/plain"}.to raise_exception(FrozenError)
 	end
 	
 	it "matches compatible media types" do
@@ -25,7 +50,7 @@ describe Protocol::Media::Set do
 	end
 	
 	it "matches a global wildcard" do
-		set = subject.new("*/*")
+		set = subject.for(["*/*"])
 		
 		expect(set).to be(:include?, "application/json")
 		expect(set).to be(:include?, "text/*")
@@ -41,13 +66,20 @@ describe Protocol::Media::Set do
 	end
 	
 	it "accepts compatible media range objects" do
-		set << compatible_range.new("TEXT", "*", {})
+		set = subject.for([compatible_range.new("TEXT", "*", {})])
 		
 		expect(set).to be(:match?, compatible_range.new("text", "plain", {}))
 	end
 	
+	it "rejects invalid wildcards in compatible media range objects" do
+		range = compatible_range.new("*", "json", {})
+		
+		expect{subject.for([range])}.to raise_exception(ArgumentError)
+		expect{set.include?(range)}.to raise_exception(ArgumentError)
+	end
+	
 	it "enumerates canonical membership ranges" do
-		set.add("image/*; profile=example")
+		set = subject.for(["application/pdf", "image/*; profile=example"])
 		
 		expect(set.size).to be == 2
 		expect(set.first.parameters).to be(:empty?)
@@ -60,39 +92,35 @@ describe Protocol::Media::Set do
 	end
 	
 	it "removes entries covered by a type wildcard" do
-		set = subject.new("image/png", "application/pdf", "image/jpeg")
-		set << "image/*"
+		set = subject.for(["image/png", "application/pdf", "image/jpeg", "image/*"])
 		
 		expect(set.map(&:name).sort).to be == ["application/pdf", "image/*"]
 	end
 	
 	it "ignores entries covered by a wildcard" do
-		set << "image/png"
+		set = subject.for(["image/*", "application/pdf", "image/png"])
 		
 		expect(set.map(&:name)).to be == ["image/*", "application/pdf"]
 	end
 	
 	it "removes all entries covered by the universal wildcard" do
-		set << "*/*"
-		set << "text/plain"
+		set = subject.for(["image/*", "*/*", "text/plain"])
 		
 		expect(set.map(&:name)).to be == ["*/*"]
 	end
 	
 	it "can be empty" do
-		empty = subject.new
+		empty = subject.for([])
 		
 		expect(empty).to be(:empty?)
 		expect(empty.size).to be == 0
 	end
 	
-	it "can be frozen without freezing compatible objects" do
+	it "does not freeze compatible objects" do
 		range = compatible_range.new("text", "plain", {})
-		set << range
-		set.freeze
+		set = subject.for([range])
 		
-		expect(set.freeze).to be(:equal?, set)
 		expect(range).not.to be(:frozen?)
-		expect{set << "text/html"}.to raise_exception(FrozenError)
+		expect(set).to be(:include?, range)
 	end
 end
