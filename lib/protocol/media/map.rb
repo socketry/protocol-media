@@ -56,7 +56,7 @@ module Protocol
 					# Explicit wildcard registrations provide fallbacks for concrete lookups:
 					index.update(@fallbacks)
 					
-					return Map.send(:new, index.freeze)
+					return Map.send(:new, index.freeze).freeze
 				end
 				
 				private
@@ -128,7 +128,6 @@ module Protocol
 			
 			def initialize(index)
 				@index = index
-				freeze
 			end
 			
 			private_class_method :new

@@ -51,7 +51,6 @@ module Protocol
 				# @parameter types [Hash] The indexed subtype membership.
 				def initialize(types)
 					@types = types
-					freeze
 				end
 				
 				# Whether the type and subtype are included.
@@ -160,10 +159,10 @@ module Protocol
 							end
 						end
 						
-						types = Types.new(index.freeze)
+						types = Types.new(index.freeze).freeze
 					end
 					
-					return Set.send(:new, types)
+					return Set.send(:new, types).freeze
 				end
 			end
 			
@@ -239,7 +238,6 @@ module Protocol
 			
 			def initialize(types)
 				@types = types
-				freeze
 			end
 			
 			private_class_method :new
