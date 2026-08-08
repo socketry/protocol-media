@@ -9,9 +9,6 @@ module Protocol
 	module Media
 		# An immutable map from concrete media types to objects for range-based lookup.
 		class Map
-			UNDEFINED = Object.new.freeze
-			private_constant :UNDEFINED
-			
 			# Incrementally constructs an immutable media map.
 			class Builder
 				# Initialize an empty media map builder.
@@ -28,15 +25,8 @@ module Protocol
 					media_type = Type.new(media_type.type, media_type.subtype)
 					
 					# Preserve the first registration as the default for wildcard queries:
-					unless @index.key?("*/*")
-						@index["*/*"] = object
-					end
-					
-					type_wildcard = "#{media_type.type}/*"
-					unless @index.key?(type_wildcard)
-						@index[type_wildcard] = object
-					end
-					
+					@index["*/*"] ||= object
+					@index["#{media_type.type}/*"] ||= object
 					@index[media_type.name] = object
 				end
 				
@@ -79,13 +69,7 @@ module Protocol
 			# @parameter range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
 			def [](range)
-				object = lookup(Range.for(range))
-				
-				if object.equal?(UNDEFINED)
-					return nil
-				end
-				
-				return object
+				return lookup(Range.for(range))
 			end
 			
 			# Find the first object matching an ordered sequence of media ranges.
@@ -94,8 +78,7 @@ module Protocol
 			# @returns [Array(Object, Range | String) | nil] The matching object and original range, if one exists.
 			def for(ranges)
 				ranges.each do |range|
-					object = lookup(Range.for(range))
-					unless object.equal?(UNDEFINED)
+					if object = lookup(Range.for(range))
 						return [object, range]
 					end
 				end
@@ -113,7 +96,7 @@ module Protocol
 			
 			def lookup(range)
 				range = Range.new(range.type, range.subtype)
-				return @index.fetch(range.name, UNDEFINED)
+				return @index[range.name]
 			end
 		end
 	end

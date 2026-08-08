@@ -113,17 +113,6 @@ describe Protocol::Media::Map do
 		expect(map.for(["image/*"])).to be_nil
 	end
 	
-	it "preserves falsey mapped objects" do
-		map = subject.for("application/json" => false, "application/xml" => nil)
-		
-		expect(map["application/json"]).to be == false
-		expect(map["application/*"]).to be == false
-		expect(map["*/*"]).to be == false
-		expect(map.for(["application/json"])).to be == [false, "application/json"]
-		expect(map["application/xml"]).to be_nil
-		expect(map.for(["application/xml"])).to be == [nil, "application/xml"]
-	end
-	
 	it "does not freeze mapped objects" do
 		object = Object.new
 		map = subject.for("application/xml" => object)
