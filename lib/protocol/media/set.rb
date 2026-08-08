@@ -15,13 +15,6 @@ module Protocol
 			
 			# Matches any type or subtype.
 			class Any
-				# Add components without changing universal membership.
-				# @parameter components [Array(String)] The type and optional subtype.
-				# @returns [self]
-				def add(*components)
-					return self
-				end
-				
 				# Whether the components are included.
 				# @parameter components [Array(String)] The type and optional subtype.
 				# @returns [Boolean]
@@ -54,27 +47,11 @@ module Protocol
 			
 			# Matches specific top-level types and their subtypes.
 			class Types
-				# Initialize an empty collection of types.
-				def initialize
-					@types = {}
-				end
-				
-				# Add a type and subtype.
-				# @parameter type [String] The top-level type.
-				# @parameter subtype [String] The subtype.
-				# @returns [Types | Any] The current or widened collection.
-				def add(type, subtype)
-					if type == "*"
-						return ANY
-					elsif subtype == "*"
-						@types[type] = ANY
-					elsif subtypes = @types[type]
-						subtypes.add(subtype)
-					else
-						@types[type] = ::Set.new([subtype])
-					end
-					
-					return self
+				# Initialize an immutable collection of types.
+				# @parameter types [Hash] The indexed subtype membership.
+				def initialize(types)
+					@types = types
+					freeze
 				end
 				
 				# Whether the type and subtype are included.
@@ -128,15 +105,6 @@ module Protocol
 					return @types.empty?
 				end
 				
-				# Freeze the types and their subtype collections.
-				# @returns [self]
-				def freeze
-					return self if self.frozen?
-					
-					@types.each_value(&:freeze)
-					@types.freeze
-					super
-				end
 			end
 			
 			ANY = Any.new.freeze
@@ -147,22 +115,31 @@ module Protocol
 			class Builder
 				# Initialize an empty media set builder.
 				def initialize
-					@types = Types.new
+					@types = {}
 				end
 				
 				# Add a media range to the set under construction.
 				# @parameter range [String | Object] The media range or compatible object.
 				# @returns [self]
 				def add(range)
-					if frozen?
-						raise FrozenError, "can't modify frozen #{self.class}"
-					end
-					
 					range = Range.for(range)
 					range = Range.new(range.type, range.subtype)
 					type = range.type.freeze
 					subtype = range.subtype.freeze
-					@types = @types.add(type, subtype)
+					
+					if @types.instance_of?(Any)
+						return self
+					elsif type == "*"
+						@types = ANY
+					elsif subtype == "*"
+						@types[type] = ANY
+					elsif subtypes = @types[type]
+						unless subtypes.instance_of?(Any)
+							subtypes.add(subtype)
+						end
+					else
+						@types[type] = ::Set.new([subtype])
+					end
 					
 					return self
 				end
@@ -172,13 +149,21 @@ module Protocol
 				# Compile the current ranges into an immutable set.
 				# @returns [Set] The immutable media set.
 				def build
-					return @result if defined?(@result)
+					if @types.instance_of?(Any)
+						types = @types
+					else
+						index = @types.to_h do |type, subtypes|
+							if subtypes.instance_of?(Any)
+								[type, subtypes]
+							else
+								[type, subtypes.dup.freeze]
+							end
+						end
+						
+						types = Types.new(index.freeze)
+					end
 					
-					@types.freeze
-					@result = Set.send(:new, @types)
-					freeze
-					
-					return @result
+					return Set.send(:new, types)
 				end
 			end
 			

@@ -26,10 +26,6 @@ module Protocol
 				# @parameter range [String | Object] The media type or compatible range.
 				# @parameter object [Object] The object associated with the range.
 				def []=(range, object)
-					if frozen?
-						raise FrozenError, "can't modify frozen #{self.class}"
-					end
-					
 					range = Range.for(range)
 					range_name = name(range)
 					type = range.type.downcase
@@ -53,8 +49,6 @@ module Protocol
 				# Compile the current registrations into an immutable map.
 				# @returns [Map] The immutable media map.
 				def build
-					return @result if defined?(@result)
-					
 					index = @index.to_h do |range_name, entry_name|
 						[range_name.freeze, @entries[entry_name]]
 					end
@@ -62,13 +56,7 @@ module Protocol
 					# Explicit wildcard registrations provide fallbacks for concrete lookups:
 					index.update(@fallbacks)
 					
-					@result = Map.send(:new, index.freeze)
-					@entries.freeze
-					@index.freeze
-					@fallbacks.freeze
-					freeze
-					
-					return @result
+					return Map.send(:new, index.freeze)
 				end
 				
 				private
