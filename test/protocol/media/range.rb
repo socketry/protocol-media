@@ -33,6 +33,10 @@ describe Protocol::Media::Range do
 		expect(subject.parse("TEXT/*").name).to be == "text/*"
 	end
 	
+	it "preserves constructed names" do
+		expect(subject.new("TEXT", "PLAIN").name).to be == "TEXT/PLAIN"
+	end
+	
 	it "rejects invalid wildcard forms" do
 		expect{subject.parse("*/json")}.to raise_exception(ArgumentError)
 		expect{subject.parse("text/*+json")}.to raise_exception(ArgumentError)

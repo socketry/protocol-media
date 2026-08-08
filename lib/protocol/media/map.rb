@@ -22,7 +22,7 @@ module Protocol
 				# @parameter object [Object] The object associated with the media type.
 				def []=(media_type, object)
 					media_type = Range.for(media_type)
-					media_type = Type.new(media_type.type, media_type.subtype)
+					media_type = Type.new(media_type.type.downcase, media_type.subtype.downcase)
 					
 					# Preserve the first registration as the default for wildcard queries:
 					@index["*/*"] ||= object
@@ -95,7 +95,7 @@ module Protocol
 			private_class_method :new
 			
 			def lookup(range)
-				range = Range.new(range.type, range.subtype)
+				range = Range.new(range.type.downcase, range.subtype.downcase)
 				return @index[range.name]
 			end
 		end

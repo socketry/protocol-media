@@ -40,8 +40,8 @@ module Protocol
 					raise ArgumentError, "Invalid media range: #{text.inspect}"
 				end
 				
-				type = scanner[:type]
-				subtype = scanner[:subtype]
+				type = scanner[:type].downcase
+				subtype = scanner[:subtype].downcase
 				parameters = parse_parameters(scanner, normalize_whitespace)
 				
 				unless scanner.eos?
@@ -89,8 +89,8 @@ module Protocol
 					raise ArgumentError, "Invalid wildcards in media range: #{type}/#{subtype}"
 				end
 				
-				@type = type.downcase
-				@subtype = subtype.downcase
+				@type = type
+				@subtype = subtype
 				@parameters = parameters
 			end
 			

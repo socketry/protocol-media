@@ -17,12 +17,15 @@ module Protocol
 			class Any
 				include Enumerable
 				
+				RANGE = Range.new("*", "*", {}.freeze).freeze
+				private_constant :RANGE
+				
 				# Whether the set contains a compatible media type or range.
 				# @parameter range [String | Object] The media type or range to validate.
 				# @returns [Boolean]
 				def include?(range)
 					range = Range.for(range)
-					Range.new(range.type, range.subtype)
+					Range.new(range.type.downcase, range.subtype.downcase)
 					return true
 				end
 				
@@ -35,7 +38,7 @@ module Protocol
 				def each
 					return to_enum unless block_given?
 					
-					yield Range.new("*", "*")
+					yield RANGE
 					return self
 				end
 				
@@ -72,7 +75,7 @@ module Protocol
 					end
 					
 					range = Range.for(range)
-					range = Range.new(range.type, range.subtype)
+					range = Range.new(range.type.downcase, range.subtype.downcase)
 					type = range.type.freeze
 					subtype = range.subtype.freeze
 					
@@ -210,7 +213,7 @@ module Protocol
 			
 			def normalize(range)
 				range = Range.for(range)
-				return Range.new(range.type, range.subtype)
+				return Range.new(range.type.downcase, range.subtype.downcase)
 			end
 		end
 	end
