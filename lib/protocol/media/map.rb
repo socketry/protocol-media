@@ -49,10 +49,12 @@ module Protocol
 				return builder.build
 			end
 			
-			# Convert keyed entries into an immutable media map.
+			# Convert keyed entries into a media map.
+			#
+			# Existing maps are returned unchanged, including their frozen state.
 			#
 			# @parameter entries [Map | Enumerable] The existing map or keyed media range entries.
-			# @returns [Map] The immutable media map.
+			# @returns [Map] The existing map or a newly constructed immutable map.
 			def self.for(entries)
 				return entries if entries.instance_of?(self)
 				
@@ -64,6 +66,8 @@ module Protocol
 			end
 			
 			# Initialize a new media map with a given index.
+			#
+			# The index is retained without copying or freezing it.
 			#
 			# @parameter index [Hash] The keyed media range entries.
 			def initialize(index)

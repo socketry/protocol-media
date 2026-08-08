@@ -123,10 +123,12 @@ module Protocol
 				return builder.build
 			end
 			
-			# Convert a sequence of ranges into an immutable media set.
+			# Convert a sequence of ranges into a media set.
+			#
+			# Existing sets are returned unchanged, including their frozen state.
 			#
 			# @parameter ranges [Set | Enumerable] The existing set or media ranges.
-			# @returns [Set] The immutable media set.
+			# @returns [Set] The existing set or a newly constructed immutable set.
 			def self.for(ranges)
 				if ranges.instance_of?(self) || ranges.instance_of?(Any)
 					return ranges
@@ -140,6 +142,8 @@ module Protocol
 			end
 			
 			# Initialize a new media set with the given type index.
+			#
+			# The index is retained without copying or freezing it.
 			#
 			# @parameter types [Hash] The indexed media ranges.
 			def initialize(types)
