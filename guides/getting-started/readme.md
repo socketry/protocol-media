@@ -139,7 +139,7 @@ formats = Protocol::Media::Map.for(
 	"application/json" => :json,
 )
 
-formats["application/json; version=2"]
+formats["application/json; version=1"]
 # => :json
 ```
 
