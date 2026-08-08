@@ -80,6 +80,7 @@ describe Protocol::Media::Map do
 		map["application/xml"] = object
 		map.freeze
 		
+		expect(map.freeze).to be(:equal?, map)
 		expect(map).to be(:frozen?)
 		expect(object).not.to be(:frozen?)
 		expect{map["text/xml"] = Object.new}.to raise_exception(FrozenError)
