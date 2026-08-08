@@ -89,7 +89,6 @@ describe Protocol::Media::Set do
 		
 		expect(set.size).to be == 2
 		expect(set.first.parameters).to be(:empty?)
-		expect(set.first).to be(:frozen?)
 	end
 	
 	it "enumerates membership ranges" do

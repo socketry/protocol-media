@@ -17,15 +17,6 @@ module Protocol
 			class Any
 				include Enumerable
 				
-				RANGE = begin
-					range = Range.new("*", "*", {}.freeze)
-					range.type.freeze
-					range.subtype.freeze
-					range.freeze
-				end
-				
-				private_constant :RANGE
-				
 				# Whether the set contains a compatible media type or range.
 				# @parameter range [String | Object] The media type or range to validate.
 				# @returns [Boolean]
@@ -44,7 +35,7 @@ module Protocol
 				def each
 					return to_enum unless block_given?
 					
-					yield RANGE
+					yield Range.new("*", "*")
 					return self
 				end
 				
@@ -76,14 +67,16 @@ module Protocol
 				# @parameter range [String | Object] The media range or compatible object.
 				# @returns [self]
 				def add(range)
+					if @types.instance_of?(Any)
+						return self
+					end
+					
 					range = Range.for(range)
 					range = Range.new(range.type, range.subtype)
 					type = range.type.freeze
 					subtype = range.subtype.freeze
 					
-					if @types.instance_of?(Any)
-						return self
-					elsif type == "*"
+					if type == "*"
 						@types = ANY
 					elsif subtype == "*"
 						@types[type] = ANY
@@ -182,10 +175,10 @@ module Protocol
 				
 				@types.each do |type, subtypes|
 					if subtypes.instance_of?(Any)
-						yield canonical(type, "*")
+						yield Range.new(type, "*")
 					else
 						subtypes.each do |subtype|
-							yield canonical(type, subtype)
+							yield Range.new(type, subtype)
 						end
 					end
 				end
@@ -214,13 +207,6 @@ module Protocol
 			end
 			
 			private_class_method :new
-			
-			def canonical(type, subtype)
-				range = Range.new(type, subtype, {}.freeze)
-				range.type.freeze
-				range.subtype.freeze
-				return range.freeze
-			end
 			
 			def normalize(range)
 				range = Range.for(range)
