@@ -50,8 +50,15 @@ describe Protocol::Media::Range do
 	
 	it "rejects invalid wildcard forms" do
 		expect{subject.parse("*/json")}.to raise_exception(ArgumentError)
-		expect{subject.parse("text/*+json")}.to raise_exception(ArgumentError)
-		expect{subject.parse("te*t/plain")}.to raise_exception(ArgumentError)
+	end
+	
+	it "treats embedded stars as literal token characters" do
+		media_range = subject.parse("te*t/ht*l")
+		media_type = Protocol::Media::Type.parse("te*t/ht*l")
+		
+		expect(media_range).to be === media_type
+		expect(media_range).not.to be === Protocol::Media::Type.parse("text/html")
+		expect(subject.parse("text/*+json")).to be === Protocol::Media::Type.parse("text/*+json")
 	end
 	
 	it "matches compatible media types" do

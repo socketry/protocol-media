@@ -29,12 +29,12 @@ module Protocol
 			# @returns [Type] The normalized concrete media type.
 			def self.build(type, subtype, parameters = {})
 				# Concrete media types cannot use a wildcard type:
-				if type.include?("*")
+				if type == "*"
 					raise ArgumentError, "Media types cannot contain wildcards: #{type}/#{subtype}"
 				end
 				
 				# Concrete media types cannot use a wildcard subtype:
-				if subtype.include?("*")
+				if subtype == "*"
 					raise ArgumentError, "Media types cannot contain wildcards: #{type}/#{subtype}"
 				end
 				

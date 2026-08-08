@@ -16,6 +16,21 @@ module Protocol
 			MEDIA_TYPE = /(?<type>#{TOKEN})\/(?<subtype>#{TOKEN})/
 			PARAMETER = /\s*;\s*(?<key>#{TOKEN})=((?<value>#{TOKEN})|(?<quoted_value>#{QUOTED_STRING}))/
 			
+			# Whether the given type and subtype use wildcards validly. A wildcard type requires a wildcard subtype; embedded stars are literal token characters.
+			# @parameter type [String] The top-level type.
+			# @parameter subtype [String] The subtype.
+			# @returns [Boolean] Whether the type and subtype are valid for a media range.
+			def self.valid_wildcard?(type, subtype)
+				# A wildcard type requires a wildcard subtype:
+				if type == "*"
+					return subtype == "*"
+				end
+				
+				# An embedded star is a literal token character, not a wildcard:
+				return true
+			end
+			private_class_method :valid_wildcard?
+			
 			# Build a normalized media range.
 			#
 			# @parameter type [String] The top-level type.
@@ -195,31 +210,6 @@ module Protocol
 			end
 			
 			private
-			
-			def self.valid_wildcard?(type, subtype)
-				# A wildcard type requires a wildcard subtype:
-				if type == "*"
-					return subtype == "*"
-				end
-				
-				# Wildcards cannot form part of a type token:
-				if type.include?("*")
-					return false
-				end
-				
-				# A wildcard subtype is valid by itself:
-				if subtype == "*"
-					return true
-				end
-				
-				# Wildcards cannot form part of a subtype token:
-				if subtype.include?("*")
-					return false
-				end
-				
-				return true
-			end
-			private_class_method :valid_wildcard?
 			
 			def component_match?(component, other_component)
 				# A wildcard on either side matches any component:
