@@ -9,6 +9,11 @@ require "protocol/media/type"
 describe Protocol::Media::Set do
 	let(:set) {subject.new("image/*", "application/pdf")}
 	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
+
+	it "hides its implementation classes" do
+		expect{subject::Any}.to raise_exception(NameError)
+		expect{subject::Types}.to raise_exception(NameError)
+	end
 	
 	it "matches compatible media types" do
 		expect(set).to be(:include?, Protocol::Media::Type.parse("image/png"))

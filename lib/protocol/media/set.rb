@@ -139,6 +139,8 @@ module Protocol
 				end
 			end
 			
+			private_constant :Any, :Types
+			
 			# Initialize a set with the given media ranges.
 			# @parameter ranges [Array(String, Object)] The initial media ranges.
 			def initialize(*ranges)
