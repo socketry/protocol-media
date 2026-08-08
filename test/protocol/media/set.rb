@@ -10,9 +10,8 @@ describe Protocol::Media::Set do
 	let(:set) {subject.for(["image/*", "application/pdf"])}
 	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
 	
-	it "hides its implementation classes" do
+	it "hides its universal implementation" do
 		expect{subject::Any}.to raise_exception(NameError)
-		expect{subject::Types}.to raise_exception(NameError)
 		expect{subject::ANY}.to raise_exception(NameError)
 	end
 	
@@ -56,6 +55,9 @@ describe Protocol::Media::Set do
 	it "matches a global wildcard" do
 		set = subject.for(["*/*"])
 		
+		expect(subject.for(["*/*"])).to be(:equal?, set)
+		expect(subject.for(set)).to be(:equal?, set)
+		expect(set).to be(:frozen?)
 		expect(set).to be(:include?, "application/json")
 		expect(set).to be(:include?, "text/*")
 		expect(set).not.to be(:empty?)

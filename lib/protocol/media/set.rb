@@ -13,22 +13,38 @@ module Protocol
 		class Set
 			include Enumerable
 			
-			# Matches any type or subtype.
+			# An immutable set which matches any media range.
 			class Any
-				# Whether the components are included.
-				# @parameter components [Array(String)] The type and optional subtype.
+				include Enumerable
+				
+				RANGE = begin
+					range = Range.new("*", "*", {}.freeze)
+					range.type.freeze
+					range.subtype.freeze
+					range.freeze
+				end
+				
+				private_constant :RANGE
+				
+				# Whether the set contains a compatible media type or range.
+				# @parameter range [String | Object] The media type or range to validate.
 				# @returns [Boolean]
-				def include?(*components)
+				def include?(range)
+					range = Range.for(range)
+					Range.new(range.type, range.subtype)
 					return true
 				end
 				
+				alias === include?
+				alias match? include?
+				
 				# Enumerate the universal media range.
-				# @yields {|type, subtype| ...} The wildcard type and subtype.
+				# @yields {|range| ...} The universal media range.
 				# @returns [Enumerator | self]
 				def each
 					return to_enum unless block_given?
 					
-					yield "*", "*"
+					yield RANGE
 					return self
 				end
 				
@@ -45,70 +61,9 @@ module Protocol
 				end
 			end
 			
-			# Matches specific top-level types and their subtypes.
-			class Types
-				# Initialize an immutable collection of types.
-				# @parameter types [Hash] The indexed subtype membership.
-				def initialize(types)
-					@types = types
-				end
-				
-				# Whether the type and subtype are included.
-				# @parameter type [String] The top-level type.
-				# @parameter subtype [String] The subtype.
-				# @returns [Boolean]
-				def include?(type, subtype)
-					if type == "*"
-						return !@types.empty?
-					elsif subtypes = @types[type]
-						if subtype == "*"
-							return true
-						else
-							return subtypes.include?(subtype)
-						end
-					end
-					
-					return false
-				end
-				
-				# Enumerate the canonical membership ranges.
-				# @yields {|type, subtype| ...} Each type and subtype.
-				# @returns [Enumerator | self]
-				def each
-					return to_enum unless block_given?
-					
-					@types.each do |type, subtypes|
-						if subtypes.instance_of?(Any)
-							yield type, "*"
-						else
-							subtypes.each do |subtype|
-								yield type, subtype
-							end
-						end
-					end
-					
-					return self
-				end
-				
-				# The number of canonical membership ranges.
-				# @returns [Integer]
-				def size
-					return @types.sum do |_type, subtypes|
-						subtypes.size
-					end
-				end
-				
-				# Whether there are no membership ranges.
-				# @returns [Boolean]
-				def empty?
-					return @types.empty?
-				end
-				
-			end
-			
 			ANY = Any.new.freeze
 			
-			private_constant :Any, :Types, :ANY
+			private_constant :Any, :ANY
 			
 			# Incrementally constructs an immutable media set.
 			class Builder
@@ -149,20 +104,18 @@ module Protocol
 				# @returns [Set] The immutable media set.
 				def build
 					if @types.instance_of?(Any)
-						types = @types
-					else
-						index = @types.to_h do |type, subtypes|
-							if subtypes.instance_of?(Any)
-								[type, subtypes]
-							else
-								[type, subtypes.dup.freeze]
-							end
-						end
-						
-						types = Types.new(index.freeze).freeze
+						return @types
 					end
 					
-					return Set.send(:new, types).freeze
+					index = @types.to_h do |type, subtypes|
+						if subtypes.instance_of?(Any)
+							[type, subtypes]
+						else
+							[type, subtypes.dup.freeze]
+						end
+					end
+					
+					return Set.send(:new, index.freeze).freeze
 				end
 			end
 			
@@ -184,7 +137,9 @@ module Protocol
 			# @parameter ranges [Set | Enumerable] The existing set or media ranges.
 			# @returns [Set] The immutable media set.
 			def self.for(ranges)
-				return ranges if ranges.instance_of?(self)
+				if ranges.instance_of?(self) || ranges.instance_of?(Any)
+					return ranges
+				end
 				
 				return build do |builder|
 					ranges.each do |range|
@@ -197,10 +152,23 @@ module Protocol
 			# @parameter range [String | Object] The media type or range to match.
 			# @returns [Boolean]
 			def include?(range)
-				range = Range.for(range)
-				range = Range.new(range.type, range.subtype)
+				range = normalize(range)
+				type = range.type
+				subtype = range.subtype
 				
-				return @types.include?(range.type, range.subtype)
+				if type == "*"
+					return !@types.empty?
+				elsif subtypes = @types[type]
+					if subtype == "*"
+						return true
+					elsif subtypes.instance_of?(Any)
+						return true
+					else
+						return subtypes.include?(subtype)
+					end
+				end
+				
+				return false
 			end
 			
 			alias === include?
@@ -212,11 +180,14 @@ module Protocol
 			def each
 				return to_enum unless block_given?
 				
-				@types.each do |type, subtype|
-					range = Range.new(type, subtype, {}.freeze)
-					range.type.freeze
-					range.subtype.freeze
-					yield range.freeze
+				@types.each do |type, subtypes|
+					if subtypes.instance_of?(Any)
+						yield canonical(type, "*")
+					else
+						subtypes.each do |subtype|
+							yield canonical(type, subtype)
+						end
+					end
 				end
 				
 				return self
@@ -225,7 +196,9 @@ module Protocol
 			# The number of canonical membership ranges.
 			# @returns [Integer]
 			def size
-				return @types.size
+				return @types.sum do |_type, subtypes|
+					subtypes.size
+				end
 			end
 			
 			# Whether the set contains no media ranges.
@@ -241,6 +214,18 @@ module Protocol
 			end
 			
 			private_class_method :new
+			
+			def canonical(type, subtype)
+				range = Range.new(type, subtype, {}.freeze)
+				range.type.freeze
+				range.subtype.freeze
+				return range.freeze
+			end
+			
+			def normalize(range)
+				range = Range.for(range)
+				return Range.new(range.type, range.subtype)
+			end
 		end
 	end
 end
