@@ -135,12 +135,12 @@ Concrete registrations populate their exact key and the first available `type/*`
 Parameters do not distinguish map entries:
 
 ``` ruby
-versioned = Protocol::Media::Map.for(
-	"application/json; version=2" => :versioned_json,
+formats = Protocol::Media::Map.for(
+	"application/json" => :json,
 )
 
-versioned["application/json"]
-# => :versioned_json
+formats["application/json; version=2"]
+# => :json
 ```
 
 Use the original matched range, rather than separate parameterized registrations, when request parameters affect rendering. The [Content Negotiation](../content-negotiation/index) guide shows this pattern with an HTTP `Accept` header.
