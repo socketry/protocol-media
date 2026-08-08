@@ -19,11 +19,12 @@ Register the concrete representations the application can produce. Registration 
 require "json"
 require "protocol/media/map"
 
-representations = Protocol::Media::Map.new
-representations["application/json"] = lambda do |record, version: "1"|
-	JSON.generate(record.merge(schema_version: version))
+representations = Protocol::Media::Map.build do |builder|
+	builder["application/json"] = lambda do |record, version: "1"|
+		JSON.generate(record.merge(schema_version: version))
+	end
+	builder["text/plain"] = ->(record){record.inspect}
 end
-representations["text/plain"] = ->(record){record.inspect}
 ```
 
 Register concrete response types rather than client ranges. A server generally produces `application/json`, even when a client requests `application/*` or `*/*`.

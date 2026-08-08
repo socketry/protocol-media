@@ -7,16 +7,41 @@ require "protocol/media/map"
 require "protocol/media/type"
 
 describe Protocol::Media::Map do
-	let(:map) {subject.new}
 	let(:json_type) {Protocol::Media::Type.parse("application/json")}
 	let(:html_type) {Protocol::Media::Type.parse("text/html")}
 	let(:plain_type) {Protocol::Media::Type.parse("text/plain")}
 	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
+	let(:map) do
+		subject.for(
+			json_type => :json,
+			html_type => :html,
+			plain_type => :plain,
+		)
+	end
 	
-	before do
-		map[json_type] = :json
-		map[html_type] = :html
-		map[plain_type] = :plain
+	it "constructs immutable maps from keyed entries" do
+		expect(map).to be(:frozen?)
+		expect(subject.for(map)).to be(:equal?, map)
+		expect{map["application/xml"] = :xml}.to raise_exception(NoMethodError)
+	end
+	
+	it "constructs immutable maps with a builder" do
+		map = subject.build do |builder|
+			builder["application/json"] = :json
+		end
+		
+		expect(map["application/json"]).to be == :json
+		expect(map).to be(:frozen?)
+	end
+	
+	it "relinquishes the builder index when built" do
+		builder = subject::Builder.new
+		builder["application/json"] = :json
+		map = builder.build
+		
+		expect{builder["text/plain"] = :plain}.to raise_exception(FrozenError)
+		expect(map["application/json"]).to be == :json
+		expect(map).to be(:frozen?)
 	end
 	
 	it "looks up exact media types" do
@@ -29,19 +54,29 @@ describe Protocol::Media::Map do
 		expect(map["*/*"]).to be == :json
 	end
 	
-	it "prefers an exact range registration" do
-		map["text/*"] = :text
-		map["*/*"] = :default
+	it "uses the first registration for wildcard queries" do
+		map = subject.for(
+			"application/json" => :json,
+			"text/plain" => :plain,
+		)
 		
-		expect(map["text/*"]).to be == :text
-		expect(map["*/*"]).to be == :default
-		expect(map["text/html"]).to be == :html
+		expect(map["text/*"]).to be == :plain
+		expect(map["*/*"]).to be == :json
 	end
 	
 	it "replaces an existing type/subtype registration" do
-		map[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
+		map = subject.build do |builder|
+			builder[json_type] = :json
+			builder[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
+		end
 		
 		expect(map[json_type]).to be == :versioned_json
+		expect(map["application/*"]).to be == :json
+	end
+	
+	it "rejects wildcard registrations" do
+		expect{subject.for("text/*" => :text)}.to raise_exception(ArgumentError)
+		expect{subject.for("*/*" => :default)}.to raise_exception(ArgumentError)
 	end
 	
 	it "matches independently of parameters" do
@@ -75,14 +110,11 @@ describe Protocol::Media::Map do
 		expect(map.for(["image/*"])).to be_nil
 	end
 	
-	it "can be frozen without freezing mapped objects" do
+	it "does not freeze mapped objects" do
 		object = Object.new
-		map["application/xml"] = object
-		map.freeze
+		map = subject.for("application/xml" => object)
 		
-		expect(map.freeze).to be(:equal?, map)
-		expect(map).to be(:frozen?)
 		expect(object).not.to be(:frozen?)
-		expect{map["text/xml"] = Object.new}.to raise_exception(FrozenError)
+		expect(map["application/xml"]).to be(:equal?, object)
 	end
 end

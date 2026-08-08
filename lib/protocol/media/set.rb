@@ -5,48 +5,179 @@
 
 require_relative "range"
 
+require "set"
+
 module Protocol
 	module Media
-		# A set of compatible media ranges.
+		# An immutable set of compatible media ranges.
 		class Set
 			include Enumerable
 			
-			# Initialize a set with the given media ranges.
-			# @parameter ranges [Array(String, Object)] The initial media ranges.
-			def initialize(*ranges)
-				@entries = {}
+			# An immutable set which matches any media range.
+			class Any
+				include Enumerable
 				
-				ranges.each do |range|
-					self.add(range)
+				RANGE = Range.new("*", "*").freeze
+				private_constant :RANGE
+				
+				# Whether the set contains a compatible media type or range.
+				# @parameter range [String | Object] The media type or range to validate.
+				# @returns [Boolean]
+				def include?(media_range)
+					media_range = Range.for(media_range)
+					
+					Range.build(media_range.type, media_range.subtype)
+					
+					return true
+				end
+				
+				alias === include?
+				alias match? include?
+				
+				# Enumerate the universal media range.
+				# @yields {|range| ...} The universal media range.
+				# @returns [Enumerator | self]
+				def each
+					return to_enum unless block_given?
+					
+					yield RANGE
+					
+					return self
+				end
+				
+				# The number of membership ranges.
+				# @returns [Integer]
+				def size
+					return 1
+				end
+				
+				# Whether there are no membership ranges.
+				# @returns [Boolean]
+				def empty?
+					return false
 				end
 			end
 			
-			# Add a media range to the set.
-			# @parameter range [String | Object] The media range or compatible object.
-			# @returns [self]
-			def add(range)
-				range = Range.for(range)
-				@entries[name(range)] = range
+			ANY = Any.new.freeze
+			
+			private_constant :Any, :ANY
+			
+			# Incrementally constructs an immutable media set.
+			class Builder
+				# Initialize an empty media set builder.
+				def initialize
+					@types = {}
+				end
 				
-				return self
+				# Add a media range to the set under construction.
+				# @parameter range [String | Object] The media range or compatible object.
+				# @returns [self]
+				def add(range)
+					if @types.instance_of?(Any)
+						return self
+					end
+					
+					range = Range.for(range)
+					range = Range.build(range.type, range.subtype)
+					type = range.type.freeze
+					subtype = range.subtype.freeze
+					
+					if type == "*"
+						@types = ANY
+					elsif subtype == "*"
+						@types[type] = ANY
+					elsif subtypes = @types[type]
+						unless subtypes.instance_of?(Any)
+							subtypes.add(subtype)
+						end
+					else
+						@types[type] = ::Set.new([subtype])
+					end
+					
+					return self
+				end
+				
+				alias << add
+				
+				# Compile the current ranges into an immutable set.
+				# @returns [Set] The immutable media set.
+				def build
+					if @types.instance_of?(Any)
+						return @types
+					end
+					
+					return Set.new(@types).freeze
+				end
 			end
 			
-			alias << add
+			# Construct an immutable set using a builder.
+			# @yields {|builder| ...} The mutable builder.
+			# @returns [Set] The immutable media set.
+			def self.build
+				builder = Builder.new
+				
+				if block_given?
+					yield builder
+				end
+				
+				return builder.build
+			end
+			
+			# Convert a sequence of ranges into a media set.
+			#
+			# Existing sets are returned unchanged, including their frozen state.
+			#
+			# @parameter ranges [Set | Enumerable] The existing set or media ranges.
+			# @returns [Set] The existing set or a newly constructed immutable set.
+			def self.for(ranges)
+				if ranges.instance_of?(self) || ranges.instance_of?(Any)
+					return ranges
+				end
+				
+				return build do |builder|
+					ranges.each do |range|
+						builder << range
+					end
+				end
+			end
+			
+			# Initialize a new media set with the given type index.
+			#
+			# The index is retained without copying or freezing it.
+			#
+			# @parameter types [Hash] The indexed media ranges.
+			def initialize(types)
+				@types = types
+			end
+			
+			# Freeze the media set and its index.
+			# @returns [self]
+			def freeze
+				return self if frozen?
+				
+				@types.each_value(&:freeze)
+				@types.freeze
+				
+				return super
+			end
 			
 			# Whether the set contains a compatible media type or range.
 			# @parameter range [String | Object] The media type or range to match.
 			# @returns [Boolean]
 			def include?(range)
-				range = Range.for(range)
-				range_name = name(range)
+				range = normalize(range)
+				type = range.type
+				subtype = range.subtype
 				
-				if @entries.key?(range_name)
-					return true
-				end
-				
-				@entries.each_value do |entry|
-					if compatible?(range, entry)
+				if type == "*"
+					return !@types.empty?
+				elsif subtypes = @types[type]
+					if subtype == "*"
 						return true
+					elsif subtypes.instance_of?(Any)
+						return true
+					else
+						return subtypes.include?(subtype)
 					end
 				end
 				
@@ -56,52 +187,44 @@ module Protocol
 			alias === include?
 			alias match? include?
 			
-			# Enumerate the registered media ranges in insertion order.
-			# @yields {|range| ...} Each registered media range.
+			# Enumerate the canonical media ranges which define membership.
+			# @yields {|range| ...} Each canonical media range.
 			# @returns [Enumerator | self]
 			def each
 				return to_enum unless block_given?
 				
-				@entries.each_value do |range|
-					yield range
+				@types.each do |type, subtypes|
+					if subtypes.instance_of?(Any)
+						yield Range.new(type, "*")
+					else
+						subtypes.each do |subtype|
+							yield Range.new(type, subtype)
+						end
+					end
 				end
 				
 				return self
 			end
 			
-			# The number of registered media ranges.
+			# The number of canonical membership ranges.
 			# @returns [Integer]
 			def size
-				return @entries.size
+				return @types.sum do |_type, subtypes|
+					subtypes.size
+				end
 			end
 			
 			# Whether the set contains no media ranges.
 			# @returns [Boolean]
 			def empty?
-				return @entries.empty?
-			end
-			
-			# Freeze the set and its internal index.
-			# @returns [self]
-			def freeze
-				return self if self.frozen?
-				
-				@entries.freeze
-				super
+				return @types.empty?
 			end
 			
 			private
 			
-			def name(range)
-				return "#{range.type.downcase}/#{range.subtype.downcase}"
-			end
-			
-			def compatible?(left, right)
-				return match_component?(left.type, right.type) && match_component?(left.subtype, right.subtype)
-			end
-			
-			def match_component?(left, right)
-				return left == "*" || right == "*" || left.casecmp?(right)
+			def normalize(range)
+				range = Range.for(range)
+				return Range.build(range.type, range.subtype)
 			end
 		end
 	end

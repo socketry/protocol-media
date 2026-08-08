@@ -16,6 +16,23 @@ module Protocol
 			MEDIA_TYPE = /(?<type>#{TOKEN})\/(?<subtype>#{TOKEN})/
 			PARAMETER = /\s*;\s*(?<key>#{TOKEN})=((?<value>#{TOKEN})|(?<quoted_value>#{QUOTED_STRING}))/
 			
+			# Build a normalized media range.
+			#
+			# @parameter type [String] The top-level type.
+			# @parameter subtype [String] The subtype.
+			# @parameter parameters [Hash] The media range parameters.
+			# @returns [Range] The normalized media range.
+			def self.build(type, subtype = "*", parameters = {})
+				type = type.downcase
+				subtype = subtype.downcase
+				
+				unless valid_wildcard?(type, subtype)
+					raise ArgumentError, "Invalid wildcards in media range: #{type}/#{subtype}"
+				end
+				
+				return new(type, subtype, parameters)
+			end
+			
 			# Parse strings into media ranges while preserving compatible objects.
 			#
 			# @parameter value [String | Object] A media range string or compatible object.
@@ -48,7 +65,7 @@ module Protocol
 					raise ArgumentError, "Invalid media range: #{text.inspect}"
 				end
 				
-				new(type, subtype, parameters)
+				return build(type, subtype, parameters)
 			end
 			
 			# Parse media type parameters from the scanner.
@@ -85,12 +102,8 @@ module Protocol
 			# @parameter subtype [String] The subtype.
 			# @parameter parameters [Hash] The media range parameters.
 			def initialize(type, subtype = "*", parameters = {})
-				unless valid_wildcard?(type, subtype)
-					raise ArgumentError, "Invalid wildcards in media range: #{type}/#{subtype}"
-				end
-				
-				@type = type.downcase
-				@subtype = subtype.downcase
+				@type = type
+				@subtype = subtype
 				@parameters = parameters
 			end
 			
@@ -113,6 +126,18 @@ module Protocol
 			end
 			
 			alias to_str to_s
+			
+			# Freeze the media range and its direct values.
+			# @returns [self]
+			def freeze
+				return self if frozen?
+				
+				@type.freeze
+				@subtype.freeze
+				@parameters.freeze
+				
+				return super
+			end
 			
 			# Whether this range matches the given media type or range.
 			#
@@ -144,12 +169,13 @@ module Protocol
 			
 			private
 			
-			def valid_wildcard?(type, subtype)
+			def self.valid_wildcard?(type, subtype)
 				return subtype == "*" if type == "*"
 				return false if type.include?("*")
 				
 				subtype == "*" || !subtype.include?("*")
 			end
+			private_class_method :valid_wildcard?
 			
 			def self.unquote(value, normalize_whitespace)
 				value = value[1...-1]

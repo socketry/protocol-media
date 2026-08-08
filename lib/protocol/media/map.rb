@@ -3,37 +3,93 @@
 # Released under the MIT License.
 # Copyright, 2026, by Samuel Williams.
 
-require_relative "range"
+require_relative "type"
 
 module Protocol
 	module Media
-		# Maps media types and ranges to objects using type/subtype compatibility.
+		# An immutable map from concrete media types to objects for range-based lookup.
 		class Map
-			# Initialize an empty media map.
-			def initialize
-				@entries = {}
+			# Incrementally constructs an immutable media map.
+			class Builder
+				# Initialize an empty media map builder.
+				def initialize
+					@index = {}
+				end
+				
+				# Associate a concrete media type with an object.
+				#
+				# @parameter media_type [String | Object] The concrete media type or compatible object.
+				# @parameter object [Object] The object associated with the media type.
+				def []=(media_type, object)
+					media_type = Type.for(media_type)
+					
+					# Preserve the first registration as the default for wildcard queries:
+					@index["*/*"] ||= object
+					@index["#{media_type.type}/*"] ||= object
+					@index[media_type.name] = object
+				end
+				
+				# Compile the current registrations into an immutable map.
+				# @returns [Map] The immutable media map.
+				def build
+					return Map.new(@index).freeze
+				end
 			end
 			
-			# Associate a media type or range with an object.
-			#
-			# @parameter range [String | Object] The media type or compatible range.
-			# @parameter object [Object] The object associated with the range.
-			def []=(range, object)
-				range = Range.for(range)
+			# Construct an immutable map using a builder.
+			# @yields {|builder| ...} The mutable builder.
+			# @returns [Map] The immutable media map.
+			def self.build
+				builder = Builder.new
 				
-				@entries[name(range)] = [range, object]
+				if block_given?
+					yield builder
+				end
+				
+				return builder.build
+			end
+			
+			# Convert keyed entries into a media map.
+			#
+			# Existing maps are returned unchanged, including their frozen state.
+			#
+			# @parameter entries [Map | Enumerable] The existing map or keyed media range entries.
+			# @returns [Map] The existing map or a newly constructed immutable map.
+			def self.for(entries)
+				return entries if entries.instance_of?(self)
+				
+				return build do |builder|
+					entries.each do |range, object|
+						builder[range] = object
+					end
+				end
+			end
+			
+			# Initialize a new media map with a given index.
+			#
+			# The index is retained without copying or freezing it.
+			#
+			# @parameter index [Hash] The keyed media range entries.
+			def initialize(index)
+				@index = index
+			end
+			
+			# Freeze the media map and its index.
+			# @returns [self]
+			def freeze
+				return self if frozen?
+				
+				@index.freeze
+				
+				return super
 			end
 			
 			# Find the object matching a media type or range.
 			#
-			# Exact type/subtype registrations take priority, followed by the first compatible registration.
-			#
 			# @parameter range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
 			def [](range)
-				if entry = lookup(Range.for(range))
-					entry.last
-				end
+				return lookup(Range.for(range))
 			end
 			
 			# Find the first object matching an ordered sequence of media ranges.
@@ -42,49 +98,19 @@ module Protocol
 			# @returns [Array(Object, Range | String) | nil] The matching object and original range, if one exists.
 			def for(ranges)
 				ranges.each do |range|
-					if entry = lookup(Range.for(range))
-						return [entry.last, range]
+					if object = lookup(Range.for(range))
+						return [object, range]
 					end
 				end
 				
 				return nil
 			end
 			
-			# Freeze the map and its internal entries.
-			#
-			# @returns [self] The frozen map.
-			def freeze
-				return self if self.frozen?
-				
-				@entries.each_value(&:freeze)
-				@entries.freeze
-				
-				super
-			end
-			
 			private
 			
-			def name(range)
-				"#{range.type.downcase}/#{range.subtype.downcase}"
-			end
-			
 			def lookup(range)
-				range_name = name(range)
-				return @entries[range_name] if @entries.key?(range_name)
-				
-				@entries.each_value do |entry|
-					return entry if match?(range, entry.first)
-				end
-				
-				return nil
-			end
-			
-			def match?(left, right)
-				match_component?(left.type, right.type) && match_component?(left.subtype, right.subtype)
-			end
-			
-			def match_component?(left, right)
-				left == "*" || right == "*" || left.casecmp?(right)
+				range = Range.build(range.type, range.subtype)
+				return @index[range.name]
 			end
 		end
 	end
