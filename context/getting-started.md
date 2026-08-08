@@ -12,10 +12,11 @@ $ bundle add protocol-media
 
 ## Core Concepts
 
-Applications commonly need to identify response formats, compare wildcard ranges, and associate formats with handlers. `protocol-media` separates those concerns into three small objects:
+Applications commonly need to identify response formats, compare wildcard ranges, collect accepted formats, and associate formats with handlers. `protocol-media` separates those concerns into four small objects:
 
   - {ruby Protocol::Media::Type} represents a concrete media type such as `application/json`.
   - {ruby Protocol::Media::Range} represents a concrete or wildcard range such as `text/*`.
+  - {ruby Protocol::Media::Set} collects accepted media ranges and tests compatible membership.
   - {ruby Protocol::Media::Map} associates supported types or ranges with application objects.
 
 The gem deliberately does not parse HTTP headers or provide a media type registry. Protocol implementations can supply compatible range objects, while registry data and extension lookup are provided by `protocol-media-registry`.
@@ -52,12 +53,12 @@ Use {ruby Protocol::Media::Range.parse} when matching one or more compatible med
 require "protocol/media/range"
 require "protocol/media/type"
 
-range = Protocol::Media::Range.parse("image/*")
+media_range = Protocol::Media::Range.parse("image/*")
 png = Protocol::Media::Type.parse("image/png")
 json = Protocol::Media::Type.parse("application/json")
 
-range.match?(png) # => true
-range.match?(json) # => false
+media_range.match?(png) # => true
+media_range.match?(json) # => false
 ```
 
 `*/*` matches every media type, while `text/*` matches every subtype under `text`. Partial wildcard tokens such as `text/*+json` are not valid ranges.
@@ -67,20 +68,49 @@ range.match?(json) # => false
 {ruby Protocol::Media::Range.for} parses strings but preserves non-string objects. This allows an HTTP implementation to provide its own richer range object without depending on `protocol-media`:
 
 ``` ruby
-range = Protocol::Media::Range.for("text/*")
+media_range = Protocol::Media::Range.for("text/*")
 # => Protocol::Media::Range
 
-http_range = Struct.new(:type, :subtype, :parameters).new(
+http_media_range = Struct.new(:type, :subtype, :parameters).new(
 	"application",
 	"json",
 	{"q" => "0.8"},
 )
 
-Protocol::Media::Range.for(http_range).equal?(http_range)
+Protocol::Media::Range.for(http_media_range).equal?(http_media_range)
 # => true
 ```
 
 Compatible objects must expose `type` and `subtype`. Other attributes, such as HTTP quality factors, remain owned by the protocol-specific object.
+
+## Media Sets
+
+Use {ruby Protocol::Media::Set} when validating a media type against several accepted ranges:
+
+``` ruby
+require "protocol/media/set"
+require "protocol/media/type"
+
+accepted = Protocol::Media::Set.for(["image/*", "application/pdf"])
+media_type = Protocol::Media::Type.parse("image/png")
+
+accepted.include?(media_type)
+# => true
+```
+
+Strings are parsed with {ruby Protocol::Media::Range.for}. Sets are immutable and parameters do not affect membership:
+
+``` ruby
+accepted = Protocol::Media::Set.build do |builder|
+	builder << "image/*"
+	builder << "text/plain"
+end
+
+accepted.include?("text/plain; charset=utf-8")
+# => true
+```
+
+Sets expose the canonical ranges which define their membership with {ruby Protocol::Media::Set#each}. Redundant ranges are removed: `image/*` replaces concrete `image` ranges, while `*/*` replaces every range. Use a set for compatible membership and a {ruby Protocol::Media::Map} when each range needs an associated handler or other value.
 
 ## Media Maps
 
@@ -90,23 +120,27 @@ Use {ruby Protocol::Media::Map} when an application supports several representat
 require "json"
 require "protocol/media/map"
 
-renderers = Protocol::Media::Map.new
-renderers["application/json"] = ->(record){JSON.generate(record)}
-renderers["text/plain"] = ->(record){record.inspect}
+renderers = Protocol::Media::Map.build do |builder|
+	builder["application/json"] = ->(record){JSON.generate(record)}
+	builder["text/plain"] = ->(record){record.inspect}
+end
 
 renderer = renderers["text/*"]
 renderer.call({id: 10, name: "Example"})
 # => "{:id=>10, :name=>\"Example\"}"
 ```
 
-Exact registrations take priority. If no exact registration exists, the first compatible registration is returned. Register concrete server representations in the order they should be used for wildcard requests.
+Concrete registrations populate their exact key and the first available `type/*` and `*/*` aliases. Register concrete server representations in the order they should be used for wildcard requests. Wildcard ranges are lookup keys and cannot be registered.
 
 Parameters do not distinguish map entries:
 
 ``` ruby
-renderers["application/json; version=2"] = :versioned_json
-renderers["application/json"]
-# => :versioned_json
+formats = Protocol::Media::Map.for(
+	"application/json" => :json,
+)
+
+formats["application/json; version=1"]
+# => :json
 ```
 
 Use the original matched range, rather than separate parameterized registrations, when request parameters affect rendering. The [Content Negotiation](../content-negotiation/index) guide shows this pattern with an HTTP `Accept` header.

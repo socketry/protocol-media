@@ -19,11 +19,12 @@ Register the concrete representations the application can produce. Registration 
 require "json"
 require "protocol/media/map"
 
-representations = Protocol::Media::Map.new
-representations["application/json"] = lambda do |record, version: "1"|
-	JSON.generate(record.merge(schema_version: version))
+representations = Protocol::Media::Map.build do |builder|
+	builder["application/json"] = lambda do |record, version: "1"|
+		JSON.generate(record.merge(schema_version: version))
+	end
+	builder["text/plain"] = ->(record){record.inspect}
 end
-representations["text/plain"] = ->(record){record.inspect}
 ```
 
 Register concrete response types rather than client ranges. A server generally produces `application/json`, even when a client requests `application/*` or `*/*`.
@@ -39,8 +40,8 @@ accept = Protocol::HTTP::Header::Accept.parse(
 	"text/*;q=0.5, application/json;q=1.0",
 )
 
-ranges = accept.media_ranges.sort
-renderer, range = representations.for(ranges)
+media_ranges = accept.media_ranges.sort
+renderer, media_range = representations.for(media_ranges)
 
 renderer.call({id: 10, name: "Example"})
 # => "{\"id\":10,\"name\":\"Example\",\"schema_version\":\"1\"}"
@@ -53,10 +54,10 @@ renderer.call({id: 10, name: "Example"})
 Applications can inspect parameters on the selected HTTP range without teaching the media map about HTTP semantics:
 
 ``` ruby
-renderer, range = representations.for(ranges)
+renderer, media_range = representations.for(media_ranges)
 
 if renderer
-	version = range.parameters.fetch("version", "1")
+	version = media_range.parameters.fetch("version", "1")
 	record = {id: 10, name: "Example"}
 	body = renderer.call(record, version: version)
 end
@@ -70,12 +71,12 @@ HTTP defines a missing `Accept` header as accepting any media type. The HTTP-fac
 
 ``` ruby
 if accept_header && !accept_header.empty?
-	ranges = Protocol::HTTP::Header::Accept.parse(accept_header).media_ranges.sort
+	media_ranges = Protocol::HTTP::Header::Accept.parse(accept_header).media_ranges.sort
 else
-	ranges = [Protocol::Media::Range.parse("*/*")]
+	media_ranges = [Protocol::Media::Range.parse("*/*")]
 end
 
-renderer, range = representations.for(ranges)
+renderer, media_range = representations.for(media_ranges)
 ```
 
 This policy belongs at the HTTP application boundary rather than in {ruby Protocol::Media::Map}, which can also be used outside HTTP.
@@ -85,8 +86,8 @@ This policy belongs at the HTTP application boundary rather than in {ruby Protoc
 When no registered representation matches, {ruby Protocol::Media::Map#for} returns `nil`. An HTTP application would normally return `406 Not Acceptable`:
 
 ``` ruby
-if match = representations.for(ranges)
-	renderer, range = match
+if match = representations.for(media_ranges)
+	renderer, media_range = match
 	response_body = renderer.call(record)
 else
 	response_body = nil

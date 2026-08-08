@@ -14,7 +14,12 @@ Please see the [project documentation](https://socketry.github.io/protocol-media
 
 ## Releases
 
-There are no documented releases.
+Please see the [project releases](https://socketry.github.io/protocol-media/releases/index) for all releases.
+
+### v0.2.1
+
+  - Introduce `Protocol::Media::Set` for compatible media range membership.
+  - Make `Protocol::Media::Map` and `Protocol::Media::Set` immutable, with builders for incremental construction and indexed lookups.
 
 ## See Also
 
