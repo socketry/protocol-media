@@ -57,32 +57,6 @@ describe Protocol::Media::Map do
 		expect(map["*/*"]).to be == :json
 	end
 	
-	it "prefers an exact range registration" do
-		map = subject.build do |builder|
-			builder[json_type] = :json
-			builder[html_type] = :html
-			builder[plain_type] = :plain
-			builder["text/*"] = :text
-			builder["*/*"] = :default
-		end
-		
-		expect(map["text/*"]).to be == :text
-		expect(map["*/*"]).to be == :default
-		expect(map["text/html"]).to be == :html
-	end
-	
-	it "prefers explicit wildcard registrations by specificity" do
-		map = subject.for(
-			"*/*" => :default,
-			"text/plain" => :plain,
-			"text/*" => :text,
-		)
-		
-		expect(map["text/html"]).to be == :text
-		expect(map["text/*"]).to be == :text
-		expect(map["*/*"]).to be == :default
-	end
-	
 	it "uses the first registration for wildcard queries" do
 		map = subject.for(
 			"application/json" => :json,
@@ -93,16 +67,6 @@ describe Protocol::Media::Map do
 		expect(map["*/*"]).to be == :json
 	end
 	
-	it "uses explicitly registered wildcard fallbacks" do
-		map = subject.for(
-			"text/*" => :text,
-			"*/*" => :default,
-		)
-		
-		expect(map["text/html"]).to be == :text
-		expect(map["image/png"]).to be == :default
-	end
-	
 	it "replaces an existing type/subtype registration" do
 		map = subject.build do |builder|
 			builder[json_type] = :json
@@ -110,26 +74,12 @@ describe Protocol::Media::Map do
 		end
 		
 		expect(map[json_type]).to be == :versioned_json
-		expect(map["application/*"]).to be == :versioned_json
+		expect(map["application/*"]).to be == :json
 	end
 	
-	it "replaces type wildcard registrations" do
-		map = subject.build do |builder|
-			builder["text/*"] = :old_text
-			builder["text/*"] = :new_text
-		end
-		
-		expect(map["text/*"]).to be == :new_text
-		expect(map["*/*"]).to be == :new_text
-	end
-	
-	it "replaces universal wildcard registrations" do
-		map = subject.build do |builder|
-			builder["*/*"] = :old_default
-			builder["*/*"] = :new_default
-		end
-		
-		expect(map["*/*"]).to be == :new_default
+	it "rejects wildcard registrations" do
+		expect{subject.for("text/*" => :text)}.to raise_exception(ArgumentError)
+		expect{subject.for("*/*" => :default)}.to raise_exception(ArgumentError)
 	end
 	
 	it "matches independently of parameters" do
@@ -167,6 +117,8 @@ describe Protocol::Media::Map do
 		map = subject.for("application/json" => false, "application/xml" => nil)
 		
 		expect(map["application/json"]).to be == false
+		expect(map["application/*"]).to be == false
+		expect(map["*/*"]).to be == false
 		expect(map.for(["application/json"])).to be == [false, "application/json"]
 		expect(map["application/xml"]).to be_nil
 		expect(map.for(["application/xml"])).to be == [nil, "application/xml"]

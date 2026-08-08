@@ -130,7 +130,7 @@ renderer.call({id: 10, name: "Example"})
 # => "{:id=>10, :name=>\"Example\"}"
 ```
 
-Concrete registrations populate their exact key and the first available `type/*` and `*/*` aliases. Register concrete server representations in the order they should be used for wildcard requests. Explicit wildcard registrations replace the corresponding alias and provide specificity-based fallbacks for otherwise unknown concrete types.
+Concrete registrations populate their exact key and the first available `type/*` and `*/*` aliases. Register concrete server representations in the order they should be used for wildcard requests. Wildcard ranges are lookup keys and cannot be registered.
 
 Parameters do not distinguish map entries:
 

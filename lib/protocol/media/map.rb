@@ -3,11 +3,11 @@
 # Released under the MIT License.
 # Copyright, 2026, by Samuel Williams.
 
-require_relative "range"
+require_relative "type"
 
 module Protocol
 	module Media
-		# An immutable map from media types and ranges to objects using type/subtype compatibility.
+		# An immutable map from concrete media types to objects for range-based lookup.
 		class Map
 			UNDEFINED = Object.new.freeze
 			private_constant :UNDEFINED
@@ -16,53 +16,34 @@ module Protocol
 			class Builder
 				# Initialize an empty media map builder.
 				def initialize
-					@entries = {}
 					@index = {}
-					@fallbacks = {}
 				end
 				
-				# Associate a media type or range with an object.
+				# Associate a concrete media type with an object.
 				#
-				# @parameter range [String | Object] The media type or compatible range.
-				# @parameter object [Object] The object associated with the range.
-				def []=(range, object)
-					range = Range.for(range)
-					range_name = name(range)
-					type = range.type.downcase
-					subtype = range.subtype.downcase
+				# @parameter media_type [String | Object] The concrete media type or compatible object.
+				# @parameter object [Object] The object associated with the media type.
+				def []=(media_type, object)
+					media_type = Range.for(media_type)
+					media_type = Type.new(media_type.type, media_type.subtype)
 					
-					@entries[range_name] = object
-					@index[range_name] = range_name
-					
-					if type == "*"
-						@index["*/*"] = range_name
-						@fallbacks[nil] = object
-					elsif subtype == "*"
-						@index["*/*"] ||= range_name
-						@fallbacks[type.freeze] = object
-					else
-						@index["#{type}/*"] ||= range_name
-						@index["*/*"] ||= range_name
+					# Preserve the first registration as the default for wildcard queries:
+					unless @index.key?("*/*")
+						@index["*/*"] = object
 					end
+					
+					type_wildcard = "#{media_type.type}/*"
+					unless @index.key?(type_wildcard)
+						@index[type_wildcard] = object
+					end
+					
+					@index[media_type.name] = object
 				end
 				
 				# Compile the current registrations into an immutable map.
 				# @returns [Map] The immutable media map.
 				def build
-					index = @index.to_h do |range_name, entry_name|
-						[range_name.freeze, @entries[entry_name]]
-					end
-					
-					# Explicit wildcard registrations provide fallbacks for concrete lookups:
-					index.update(@fallbacks)
-					
-					return Map.send(:new, index.freeze).freeze
-				end
-				
-				private
-				
-				def name(range)
-					return "#{range.type.downcase}/#{range.subtype.downcase}"
+					return Map.send(:new, @index.dup.freeze).freeze
 				end
 			end
 			
@@ -94,8 +75,6 @@ module Protocol
 			end
 			
 			# Find the object matching a media type or range.
-			#
-			# Exact type/subtype registrations take priority, followed by explicit wildcard fallbacks.
 			#
 			# @parameter range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
@@ -133,23 +112,8 @@ module Protocol
 			private_class_method :new
 			
 			def lookup(range)
-				type = range.type.downcase
-				subtype = range.subtype.downcase
-				range_name = "#{type}/#{subtype}"
-				object = @index.fetch(range_name, UNDEFINED)
-				
-				unless object.equal?(UNDEFINED)
-					return object
-				end
-				
-				unless type == "*" || subtype == "*"
-					object = @index.fetch(type, UNDEFINED)
-					unless object.equal?(UNDEFINED)
-						return object
-					end
-				end
-				
-				return @index.fetch(nil, UNDEFINED)
+				range = Range.new(range.type, range.subtype)
+				return @index.fetch(range.name, UNDEFINED)
 			end
 		end
 	end
