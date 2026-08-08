@@ -130,7 +130,13 @@ module Protocol
 			# @parameter media_ranges [Set | Enumerable] The existing set or media ranges.
 			# @returns [Set] The existing set or a newly constructed immutable set.
 			def self.for(media_ranges)
-				if media_ranges.instance_of?(self) || media_ranges.instance_of?(Any)
+				# Preserve an existing media set:
+				if media_ranges.instance_of?(self)
+					return media_ranges
+				end
+				
+				# Preserve the universal media set:
+				if media_ranges.instance_of?(Any)
 					return media_ranges
 				end
 				
@@ -169,19 +175,29 @@ module Protocol
 				type = media_range.type
 				subtype = media_range.subtype
 				
+				# A wildcard type matches any non-empty set:
 				if type == "*"
 					return !@types.empty?
-				elsif subtypes = @types[type]
-					if subtype == "*"
-						return true
-					elsif subtypes.instance_of?(Any)
-						return true
-					else
-						return subtypes.include?(subtype)
-					end
 				end
 				
-				return false
+				subtypes = @types[type]
+				
+				# An unknown type cannot match:
+				unless subtypes
+					return false
+				end
+				
+				# A wildcard subtype matches any known type:
+				if subtype == "*"
+					return true
+				end
+				
+				# A type-wide wildcard matches every subtype:
+				if subtypes.instance_of?(Any)
+					return true
+				end
+				
+				return subtypes.include?(subtype)
 			end
 			
 			alias === include?

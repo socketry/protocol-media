@@ -67,6 +67,8 @@ describe Protocol::Media::Range do
 	
 	it "matches compatible ranges" do
 		expect(subject.parse("text/*")).to be === subject.parse("text/plain")
+		expect(subject.parse("text/plain")).to be === subject.parse("text/*")
+		expect(subject.parse("text/plain")).to be === subject.parse("*/*")
 		expect(subject.parse("text/*")).not.to be === subject.parse("application/*")
 	end
 	
@@ -82,5 +84,12 @@ describe Protocol::Media::Range do
 		
 		expect(media_range).to be == other
 		expect(media_range.hash).to be == other.hash
+	end
+	
+	it "distinguishes different values" do
+		expect(media_range).not.to be == Object.new
+		expect(media_range).not.to be == subject.parse('application/*; profile="example"')
+		expect(media_range).not.to be == subject.parse('text/plain; profile="example"')
+		expect(media_range).not.to be == subject.parse("text/*")
 	end
 end

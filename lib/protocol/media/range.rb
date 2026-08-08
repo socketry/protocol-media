@@ -144,8 +144,17 @@ module Protocol
 			# @parameter media_range [Range] The media type or range to match.
 			# @returns [Boolean] Whether the type and subtype are compatible.
 			def match?(media_range)
-				(@type == "*" || media_range.type == "*" || @type == media_range.type) &&
-					(@subtype == "*" || media_range.subtype == "*" || @subtype == media_range.subtype)
+				# Both type components must be compatible:
+				unless component_match?(@type, media_range.type)
+					return false
+				end
+				
+				# Both subtype components must be compatible:
+				unless component_match?(@subtype, media_range.subtype)
+					return false
+				end
+				
+				return true
 			end
 			
 			alias === match?
@@ -155,7 +164,25 @@ module Protocol
 			# @parameter other [Object] The object to compare.
 			# @returns [Boolean] Whether the values are equal.
 			def ==(other)
-				other.instance_of?(self.class) && @type == other.type && @subtype == other.subtype && @parameters == other.parameters
+				# Only media ranges of the same class can be equal:
+				unless other.instance_of?(self.class)
+					return false
+				end
+				
+				# Every component must be equal:
+				unless @type == other.type
+					return false
+				end
+				
+				unless @subtype == other.subtype
+					return false
+				end
+				
+				unless @parameters == other.parameters
+					return false
+				end
+				
+				return true
 			end
 			
 			alias eql? ==
@@ -170,12 +197,42 @@ module Protocol
 			private
 			
 			def self.valid_wildcard?(type, subtype)
-				return subtype == "*" if type == "*"
-				return false if type.include?("*")
+				# A wildcard type requires a wildcard subtype:
+				if type == "*"
+					return subtype == "*"
+				end
 				
-				subtype == "*" || !subtype.include?("*")
+				# Wildcards cannot form part of a type token:
+				if type.include?("*")
+					return false
+				end
+				
+				# A wildcard subtype is valid by itself:
+				if subtype == "*"
+					return true
+				end
+				
+				# Wildcards cannot form part of a subtype token:
+				if subtype.include?("*")
+					return false
+				end
+				
+				return true
 			end
 			private_class_method :valid_wildcard?
+			
+			def component_match?(component, other_component)
+				# A wildcard on either side matches any component:
+				if component == "*"
+					return true
+				end
+				
+				if other_component == "*"
+					return true
+				end
+				
+				return component == other_component
+			end
 			
 			def self.unquote(value, normalize_whitespace)
 				value = value[1...-1]
