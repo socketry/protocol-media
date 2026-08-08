@@ -141,11 +141,11 @@ module Protocol
 			
 			# Whether this range matches the given media type or range.
 			#
-			# @parameter other [Range] The media type or range to match.
+			# @parameter media_range [Range] The media type or range to match.
 			# @returns [Boolean] Whether the type and subtype are compatible.
-			def match?(other)
-				(@type == "*" || other.type == "*" || @type == other.type) &&
-					(@subtype == "*" || other.subtype == "*" || @subtype == other.subtype)
+			def match?(media_range)
+				(@type == "*" || media_range.type == "*" || @type == media_range.type) &&
+					(@subtype == "*" || media_range.subtype == "*" || @subtype == media_range.subtype)
 			end
 			
 			alias === match?

@@ -10,7 +10,7 @@ describe Protocol::Media::Map do
 	let(:json_type) {Protocol::Media::Type.parse("application/json")}
 	let(:html_type) {Protocol::Media::Type.parse("text/html")}
 	let(:plain_type) {Protocol::Media::Type.parse("text/plain")}
-	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
+	let(:compatible_media_range) {Struct.new(:type, :subtype, :parameters)}
 	let(:map) do
 		subject.for(
 			json_type => :json,
@@ -84,21 +84,21 @@ describe Protocol::Media::Map do
 	end
 	
 	it "finds the first preferred media range" do
-		ranges = [
+		media_ranges = [
 			Protocol::Media::Range.parse("image/*"),
 			Protocol::Media::Range.parse("text/plain; format=flowed"),
 		]
 		
-		expect(map.for(ranges)).to be == [:plain, ranges.last]
+		expect(map.for(media_ranges)).to be == [:plain, media_ranges.last]
 	end
 	
 	it "accepts compatible media range objects" do
-		ranges = [
-			compatible_range.new("IMAGE", "*", {}),
-			compatible_range.new("TEXT", "PLAIN", {"q" => "0.5"}),
+		media_ranges = [
+			compatible_media_range.new("IMAGE", "*", {}),
+			compatible_media_range.new("TEXT", "PLAIN", {"q" => "0.5"}),
 		]
 		
-		expect(map.for(ranges)).to be == [:plain, ranges.last]
+		expect(map.for(media_ranges)).to be == [:plain, media_ranges.last]
 	end
 	
 	it "preserves string ranges when finding a preferred match" do

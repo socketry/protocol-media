@@ -53,12 +53,12 @@ Use {ruby Protocol::Media::Range.parse} when matching one or more compatible med
 require "protocol/media/range"
 require "protocol/media/type"
 
-range = Protocol::Media::Range.parse("image/*")
+media_range = Protocol::Media::Range.parse("image/*")
 png = Protocol::Media::Type.parse("image/png")
 json = Protocol::Media::Type.parse("application/json")
 
-range.match?(png) # => true
-range.match?(json) # => false
+media_range.match?(png) # => true
+media_range.match?(json) # => false
 ```
 
 `*/*` matches every media type, while `text/*` matches every subtype under `text`. Partial wildcard tokens such as `text/*+json` are not valid ranges.
@@ -68,16 +68,16 @@ range.match?(json) # => false
 {ruby Protocol::Media::Range.for} parses strings but preserves non-string objects. This allows an HTTP implementation to provide its own richer range object without depending on `protocol-media`:
 
 ``` ruby
-range = Protocol::Media::Range.for("text/*")
+media_range = Protocol::Media::Range.for("text/*")
 # => Protocol::Media::Range
 
-http_range = Struct.new(:type, :subtype, :parameters).new(
+http_media_range = Struct.new(:type, :subtype, :parameters).new(
 	"application",
 	"json",
 	{"q" => "0.8"},
 )
 
-Protocol::Media::Range.for(http_range).equal?(http_range)
+Protocol::Media::Range.for(http_media_range).equal?(http_media_range)
 # => true
 ```
 

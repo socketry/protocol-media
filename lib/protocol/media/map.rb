@@ -59,8 +59,8 @@ module Protocol
 				return entries if entries.instance_of?(self)
 				
 				return build do |builder|
-					entries.each do |range, object|
-						builder[range] = object
+					entries.each do |media_type, object|
+						builder[media_type] = object
 					end
 				end
 			end
@@ -86,20 +86,20 @@ module Protocol
 			
 			# Find the object matching a media type or range.
 			#
-			# @parameter range [String | Object] The media type or compatible range.
+			# @parameter media_range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
-			def [](range)
-				return lookup(Range.for(range))
+			def [](media_range)
+				return lookup(Range.for(media_range))
 			end
 			
 			# Find the first object matching an ordered sequence of media ranges.
 			#
-			# @parameter ranges [Enumerable] The media types or ranges in preference order.
+			# @parameter media_ranges [Enumerable] The media types or ranges in preference order.
 			# @returns [Array(Object, Range | String) | nil] The matching object and original range, if one exists.
-			def for(ranges)
-				ranges.each do |range|
-					if object = lookup(Range.for(range))
-						return [object, range]
+			def for(media_ranges)
+				media_ranges.each do |media_range|
+					if object = lookup(Range.for(media_range))
+						return [object, media_range]
 					end
 				end
 				
@@ -108,9 +108,9 @@ module Protocol
 			
 			private
 			
-			def lookup(range)
-				range = Range.build(range.type, range.subtype)
-				return @index[range.name]
+			def lookup(media_range)
+				media_range = Range.build(media_range.type, media_range.subtype)
+				return @index[media_range.name]
 			end
 		end
 	end

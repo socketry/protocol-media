@@ -7,7 +7,7 @@ require "protocol/media/range"
 require "protocol/media/type"
 
 describe Protocol::Media::Range do
-	let(:range) {subject.parse('text/*; profile="example"')}
+	let(:media_range) {subject.parse('text/*; profile="example"')}
 	
 	it "parses strings with .for" do
 		expect(subject.for("text/plain")).to be == subject.parse("text/plain")
@@ -19,10 +19,10 @@ describe Protocol::Media::Range do
 	end
 	
 	it "parses a media range" do
-		expect(range.type).to be == "text"
-		expect(range.subtype).to be == "*"
-		expect(range.parameters).to be == {"profile" => "example"}
-		expect(range.to_s).to be == "text/*; profile=example"
+		expect(media_range.type).to be == "text"
+		expect(media_range.subtype).to be == "*"
+		expect(media_range.parameters).to be == {"profile" => "example"}
+		expect(media_range.to_s).to be == "text/*; profile=example"
 	end
 	
 	it "defaults to any subtype" do
@@ -39,13 +39,13 @@ describe Protocol::Media::Range do
 	end
 	
 	it "freezes its values" do
-		range = subject.new(+"TEXT", +"PLAIN", {})
-		range.freeze
+		media_range = subject.new(+"TEXT", +"PLAIN", {})
+		media_range.freeze
 		
-		expect(range.freeze).to be(:equal?, range)
-		expect(range.type).to be(:frozen?)
-		expect(range.subtype).to be(:frozen?)
-		expect(range.parameters).to be(:frozen?)
+		expect(media_range.freeze).to be(:equal?, media_range)
+		expect(media_range.type).to be(:frozen?)
+		expect(media_range.subtype).to be(:frozen?)
+		expect(media_range.parameters).to be(:frozen?)
 	end
 	
 	it "rejects invalid wildcard forms" do
@@ -71,16 +71,16 @@ describe Protocol::Media::Range do
 	end
 	
 	it "matches independently of parameters" do
-		range = subject.parse("application/json; version=2")
+		media_range = subject.parse("application/json; version=2")
 		type = Protocol::Media::Type.parse("application/json")
 		
-		expect(range).to be === type
+		expect(media_range).to be === type
 	end
 	
 	it "compares equivalent values" do
 		other = subject.parse('text/*; profile="example"')
 		
-		expect(range).to be == other
-		expect(range.hash).to be == other.hash
+		expect(media_range).to be == other
+		expect(media_range.hash).to be == other.hash
 	end
 end

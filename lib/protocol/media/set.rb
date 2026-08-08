@@ -21,7 +21,7 @@ module Protocol
 				private_constant :RANGE
 				
 				# Whether the set contains a compatible media type or range.
-				# @parameter range [String | Object] The media type or range to validate.
+				# @parameter media_range [String | Object] The media type or range to validate.
 				# @returns [Boolean]
 				def include?(media_range)
 					media_range = Range.for(media_range)
@@ -35,7 +35,7 @@ module Protocol
 				alias match? include?
 				
 				# Enumerate the universal media range.
-				# @yields {|range| ...} The universal media range.
+				# @yields {|media_range| ...} The universal media range.
 				# @returns [Enumerator | self]
 				def each
 					return to_enum unless block_given?
@@ -70,17 +70,17 @@ module Protocol
 				end
 				
 				# Add a media range to the set under construction.
-				# @parameter range [String | Object] The media range or compatible object.
+				# @parameter media_range [String | Object] The media range or compatible object.
 				# @returns [self]
-				def add(range)
+				def add(media_range)
 					if @types.instance_of?(Any)
 						return self
 					end
 					
-					range = Range.for(range)
-					range = Range.build(range.type, range.subtype)
-					type = range.type.freeze
-					subtype = range.subtype.freeze
+					media_range = Range.for(media_range)
+					media_range = Range.build(media_range.type, media_range.subtype)
+					type = media_range.type.freeze
+					subtype = media_range.subtype.freeze
 					
 					if type == "*"
 						@types = ANY
@@ -127,16 +127,16 @@ module Protocol
 			#
 			# Existing sets are returned unchanged, including their frozen state.
 			#
-			# @parameter ranges [Set | Enumerable] The existing set or media ranges.
+			# @parameter media_ranges [Set | Enumerable] The existing set or media ranges.
 			# @returns [Set] The existing set or a newly constructed immutable set.
-			def self.for(ranges)
-				if ranges.instance_of?(self) || ranges.instance_of?(Any)
-					return ranges
+			def self.for(media_ranges)
+				if media_ranges.instance_of?(self) || media_ranges.instance_of?(Any)
+					return media_ranges
 				end
 				
 				return build do |builder|
-					ranges.each do |range|
-						builder << range
+					media_ranges.each do |media_range|
+						builder << media_range
 					end
 				end
 			end
@@ -162,12 +162,12 @@ module Protocol
 			end
 			
 			# Whether the set contains a compatible media type or range.
-			# @parameter range [String | Object] The media type or range to match.
+			# @parameter media_range [String | Object] The media type or range to match.
 			# @returns [Boolean]
-			def include?(range)
-				range = normalize(range)
-				type = range.type
-				subtype = range.subtype
+			def include?(media_range)
+				media_range = normalize(media_range)
+				type = media_range.type
+				subtype = media_range.subtype
 				
 				if type == "*"
 					return !@types.empty?
@@ -188,7 +188,7 @@ module Protocol
 			alias match? include?
 			
 			# Enumerate the canonical media ranges which define membership.
-			# @yields {|range| ...} Each canonical media range.
+			# @yields {|media_range| ...} Each canonical media range.
 			# @returns [Enumerator | self]
 			def each
 				return to_enum unless block_given?
@@ -222,9 +222,9 @@ module Protocol
 			
 			private
 			
-			def normalize(range)
-				range = Range.for(range)
-				return Range.build(range.type, range.subtype)
+			def normalize(media_range)
+				media_range = Range.for(media_range)
+				return Range.build(media_range.type, media_range.subtype)
 			end
 		end
 	end

@@ -8,7 +8,7 @@ require "protocol/media/type"
 
 describe Protocol::Media::Set do
 	let(:set) {subject.for(["image/*", "application/pdf"])}
-	let(:compatible_range) {Struct.new(:type, :subtype, :parameters)}
+	let(:compatible_media_range) {Struct.new(:type, :subtype, :parameters)}
 	
 	it "hides its universal implementation" do
 		expect{subject::Any}.to raise_exception(NameError)
@@ -69,16 +69,16 @@ describe Protocol::Media::Set do
 	end
 	
 	it "accepts compatible media range objects" do
-		set = subject.for([compatible_range.new("TEXT", "*", {})])
+		set = subject.for([compatible_media_range.new("TEXT", "*", {})])
 		
-		expect(set).to be(:match?, compatible_range.new("text", "plain", {}))
+		expect(set).to be(:match?, compatible_media_range.new("text", "plain", {}))
 	end
 	
 	it "rejects invalid wildcards in compatible media range objects" do
-		range = compatible_range.new("*", "json", {})
+		media_range = compatible_media_range.new("*", "json", {})
 		
-		expect{subject.for([range])}.to raise_exception(ArgumentError)
-		expect{set.include?(range)}.to raise_exception(ArgumentError)
+		expect{subject.for([media_range])}.to raise_exception(ArgumentError)
+		expect{set.include?(media_range)}.to raise_exception(ArgumentError)
 	end
 	
 	it "enumerates canonical membership ranges" do
@@ -119,10 +119,10 @@ describe Protocol::Media::Set do
 	end
 	
 	it "does not freeze compatible objects" do
-		range = compatible_range.new("text", "plain", {})
-		set = subject.for([range])
+		media_range = compatible_media_range.new("text", "plain", {})
+		set = subject.for([media_range])
 		
-		expect(range).not.to be(:frozen?)
-		expect(set).to be(:include?, range)
+		expect(media_range).not.to be(:frozen?)
+		expect(set).to be(:include?, media_range)
 	end
 end
