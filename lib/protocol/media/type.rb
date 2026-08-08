@@ -28,7 +28,13 @@ module Protocol
 			# @parameter parameters [Hash] The media type parameters.
 			# @returns [Type] The normalized concrete media type.
 			def self.build(type, subtype, parameters = {})
-				if type.include?("*") || subtype.include?("*")
+				# Concrete media types cannot use a wildcard type:
+				if type == "*"
+					raise ArgumentError, "Media types cannot contain wildcards: #{type}/#{subtype}"
+				end
+				
+				# Concrete media types cannot use a wildcard subtype:
+				if subtype == "*"
 					raise ArgumentError, "Media types cannot contain wildcards: #{type}/#{subtype}"
 				end
 				

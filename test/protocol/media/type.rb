@@ -36,6 +36,10 @@ describe Protocol::Media::Type do
 		end.to raise_exception(ArgumentError)
 		
 		expect do
+			subject.parse("*/*")
+		end.to raise_exception(ArgumentError)
+		
+		expect do
 			subject.parse("text/plain/extra")
 		end.to raise_exception(ArgumentError)
 		

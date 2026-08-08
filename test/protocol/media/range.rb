@@ -50,8 +50,15 @@ describe Protocol::Media::Range do
 	
 	it "rejects invalid wildcard forms" do
 		expect{subject.parse("*/json")}.to raise_exception(ArgumentError)
-		expect{subject.parse("text/*+json")}.to raise_exception(ArgumentError)
-		expect{subject.parse("te*t/plain")}.to raise_exception(ArgumentError)
+	end
+	
+	it "treats embedded stars as literal token characters" do
+		media_range = subject.parse("te*t/ht*l")
+		media_type = Protocol::Media::Type.parse("te*t/ht*l")
+		
+		expect(media_range).to be === media_type
+		expect(media_range).not.to be === Protocol::Media::Type.parse("text/html")
+		expect(subject.parse("text/*+json")).to be === Protocol::Media::Type.parse("text/*+json")
 	end
 	
 	it "matches compatible media types" do
@@ -67,6 +74,8 @@ describe Protocol::Media::Range do
 	
 	it "matches compatible ranges" do
 		expect(subject.parse("text/*")).to be === subject.parse("text/plain")
+		expect(subject.parse("text/plain")).to be === subject.parse("text/*")
+		expect(subject.parse("text/plain")).to be === subject.parse("*/*")
 		expect(subject.parse("text/*")).not.to be === subject.parse("application/*")
 	end
 	
@@ -82,5 +91,12 @@ describe Protocol::Media::Range do
 		
 		expect(media_range).to be == other
 		expect(media_range.hash).to be == other.hash
+	end
+	
+	it "distinguishes different values" do
+		expect(media_range).not.to be == Object.new
+		expect(media_range).not.to be == subject.parse('application/*; profile="example"')
+		expect(media_range).not.to be == subject.parse('text/plain; profile="example"')
+		expect(media_range).not.to be == subject.parse("text/*")
 	end
 end
