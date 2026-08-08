@@ -38,10 +38,57 @@ describe Protocol::Media::Map do
 		expect(map["text/html"]).to be == :html
 	end
 	
+	it "prefers explicit wildcard registrations by specificity" do
+		map = subject.new
+		map["*/*"] = :default
+		map["text/plain"] = :plain
+		map["text/*"] = :text
+		
+		expect(map["text/html"]).to be == :text
+		expect(map["text/*"]).to be == :text
+		expect(map["*/*"]).to be == :default
+	end
+	
+	it "uses the first registration for wildcard queries" do
+		map = subject.new
+		map["application/json"] = :json
+		map["text/plain"] = :plain
+		
+		expect(map["text/*"]).to be == :plain
+		expect(map["*/*"]).to be == :json
+	end
+	
+	it "uses explicitly registered wildcard fallbacks" do
+		map = subject.new
+		map["text/*"] = :text
+		map["*/*"] = :default
+		
+		expect(map["text/html"]).to be == :text
+		expect(map["image/png"]).to be == :default
+	end
+	
 	it "replaces an existing type/subtype registration" do
 		map[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
 		
 		expect(map[json_type]).to be == :versioned_json
+		expect(map["application/*"]).to be == :versioned_json
+	end
+	
+	it "replaces type wildcard registrations" do
+		map = subject.new
+		map["text/*"] = :old_text
+		map["text/*"] = :new_text
+		
+		expect(map["text/*"]).to be == :new_text
+		expect(map["*/*"]).to be == :new_text
+	end
+	
+	it "replaces universal wildcard registrations" do
+		map = subject.new
+		map["*/*"] = :old_default
+		map["*/*"] = :new_default
+		
+		expect(map["*/*"]).to be == :new_default
 	end
 	
 	it "matches independently of parameters" do

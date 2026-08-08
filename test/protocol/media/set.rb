@@ -14,6 +14,17 @@ describe Protocol::Media::Set do
 		expect(set).to be(:include?, Protocol::Media::Type.parse("image/png"))
 		expect(set).to be(:include?, "application/pdf")
 		expect(set).to be === Protocol::Media::Range.parse("image/jpeg")
+		expect(set).to be(:include?, "image/*")
+		expect(set).to be(:include?, "application/*")
+		expect(set).to be(:include?, "*/*")
+	end
+	
+	it "matches a global wildcard" do
+		set = subject.new("*/*")
+		
+		expect(set).to be(:include?, "application/json")
+		expect(set).to be(:include?, "text/*")
+		expect(set).not.to be(:empty?)
 	end
 	
 	it "does not match incompatible media types" do
@@ -30,16 +41,37 @@ describe Protocol::Media::Set do
 		expect(set).to be(:match?, compatible_range.new("text", "plain", {}))
 	end
 	
-	it "replaces an existing type/subtype registration" do
+	it "enumerates canonical membership ranges" do
 		set.add("image/*; profile=example")
 		
 		expect(set.size).to be == 2
-		expect(set.first.parameters).to be == {"profile" => "example"}
+		expect(set.first.parameters).to be(:empty?)
+		expect(set.first).to be(:frozen?)
 	end
 	
-	it "enumerates ranges in insertion order" do
+	it "enumerates membership ranges" do
 		expect(set.each).to be_a(Enumerator)
 		expect(set.map(&:name)).to be == ["image/*", "application/pdf"]
+	end
+	
+	it "removes entries covered by a type wildcard" do
+		set = subject.new("image/png", "application/pdf", "image/jpeg")
+		set << "image/*"
+		
+		expect(set.map(&:name).sort).to be == ["application/pdf", "image/*"]
+	end
+	
+	it "ignores entries covered by a wildcard" do
+		set << "image/png"
+		
+		expect(set.map(&:name)).to be == ["image/*", "application/pdf"]
+	end
+	
+	it "removes all entries covered by the universal wildcard" do
+		set << "*/*"
+		set << "text/plain"
+		
+		expect(set.map(&:name)).to be == ["*/*"]
 	end
 	
 	it "can be empty" do

@@ -12,6 +12,7 @@ module Protocol
 			# Initialize an empty media map.
 			def initialize
 				@entries = {}
+				@index = {}
 			end
 			
 			# Associate a media type or range with an object.
@@ -20,8 +21,21 @@ module Protocol
 			# @parameter object [Object] The object associated with the range.
 			def []=(range, object)
 				range = Range.for(range)
+				range_name = name(range)
+				type = range.type.downcase
+				subtype = range.subtype.downcase
 				
-				@entries[name(range)] = [range, object]
+				@entries[range_name] = object
+				@index[range_name] = range_name
+				
+				if type == "*"
+					@index["*/*"] = range_name
+				elsif subtype == "*"
+					@index["*/*"] ||= range_name
+				else
+					@index["#{type}/*"] ||= range_name
+					@index["*/*"] ||= range_name
+				end
 			end
 			
 			# Find the object matching a media type or range.
@@ -31,8 +45,8 @@ module Protocol
 			# @parameter range [String | Object] The media type or compatible range.
 			# @returns [Object | nil] The matching object, if one exists.
 			def [](range)
-				if entry = lookup(Range.for(range))
-					entry.last
+				if entry_name = lookup(Range.for(range))
+					@entries[entry_name]
 				end
 			end
 			
@@ -42,8 +56,8 @@ module Protocol
 			# @returns [Array(Object, Range | String) | nil] The matching object and original range, if one exists.
 			def for(ranges)
 				ranges.each do |range|
-					if entry = lookup(Range.for(range))
-						return [entry.last, range]
+					if entry_name = lookup(Range.for(range))
+						return [@entries[entry_name], range]
 					end
 				end
 				
@@ -56,8 +70,8 @@ module Protocol
 			def freeze
 				return self if self.frozen?
 				
-				@entries.each_value(&:freeze)
 				@entries.freeze
+				@index.freeze
 				
 				super
 			end
@@ -69,22 +83,23 @@ module Protocol
 			end
 			
 			def lookup(range)
-				range_name = name(range)
-				return @entries[range_name] if @entries.key?(range_name)
+				type = range.type.downcase
+				subtype = range.subtype.downcase
+				range_name = "#{type}/#{subtype}"
+				return @index[range_name] if @index.key?(range_name)
 				
-				@entries.each_value do |entry|
-					return entry if match?(range, entry.first)
+				unless type == "*" || subtype == "*"
+					type_wildcard = "#{type}/*"
+					if @entries.key?(type_wildcard)
+						return type_wildcard
+					end
+				end
+				
+				if @entries.key?("*/*")
+					return "*/*"
 				end
 				
 				return nil
-			end
-			
-			def match?(left, right)
-				match_component?(left.type, right.type) && match_component?(left.subtype, right.subtype)
-			end
-			
-			def match_component?(left, right)
-				left == "*" || right == "*" || left.casecmp?(right)
 			end
 		end
 	end

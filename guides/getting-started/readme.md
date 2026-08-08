@@ -98,7 +98,7 @@ accepted.include?(media_type)
 # => true
 ```
 
-Strings are parsed with {ruby Protocol::Media::Range.for}, while compatible range objects are preserved. Add ranges with {ruby Protocol::Media::Set#add} or `<<`. Adding the same normalized type and subtype replaces the existing entry, and parameters do not affect matching:
+Strings are parsed with {ruby Protocol::Media::Range.for}. Add ranges with {ruby Protocol::Media::Set#add} or `<<`. Parameters do not affect membership:
 
 ``` ruby
 accepted << "text/plain"
@@ -106,7 +106,7 @@ accepted.include?("text/plain; charset=utf-8")
 # => true
 ```
 
-Sets preserve insertion order when enumerated and expose their registered ranges with {ruby Protocol::Media::Set#each}. Use a set for compatible membership and a {ruby Protocol::Media::Map} when each range needs an associated handler or other value.
+Sets expose the canonical ranges which define their membership with {ruby Protocol::Media::Set#each}. Redundant ranges are removed: `image/*` replaces concrete `image` ranges, while `*/*` replaces every range. Use a set for compatible membership and a {ruby Protocol::Media::Map} when each range needs an associated handler or other value.
 
 ## Media Maps
 
@@ -125,7 +125,7 @@ renderer.call({id: 10, name: "Example"})
 # => "{:id=>10, :name=>\"Example\"}"
 ```
 
-Exact registrations take priority. If no exact registration exists, the first compatible registration is returned. Register concrete server representations in the order they should be used for wildcard requests.
+Concrete registrations populate their exact key and the first available `type/*` and `*/*` aliases. Register concrete server representations in the order they should be used for wildcard requests. Explicit wildcard registrations replace the corresponding alias and provide specificity-based fallbacks for otherwise unknown concrete types.
 
 Parameters do not distinguish map entries:
 
