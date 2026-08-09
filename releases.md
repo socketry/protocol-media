@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## v0.3.0
 
   - Replace media map and set builders with mutable collections that can be frozen after construction.
   - Simplify lazy compilation of media map and set indexes.
