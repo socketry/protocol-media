@@ -130,12 +130,12 @@ module Protocol
 			def freeze
 				return self if frozen?
 				
-				@types ||= compile(@entries)
+				types = self.types
 				@entries = nil
 				
-				unless @types.instance_of?(Any)
-					@types.each_value(&:freeze)
-					@types.freeze
+				unless types.instance_of?(Any)
+					types.each_value(&:freeze)
+					types.freeze
 				end
 				
 				return super
@@ -148,7 +148,7 @@ module Protocol
 				media_range = normalize(media_range)
 				type = media_range.type
 				subtype = media_range.subtype
-				types = @types ||= compile(@entries)
+				types = self.types
 				
 				if types.instance_of?(Any)
 					return true
@@ -188,7 +188,7 @@ module Protocol
 			def each(&block)
 				return to_enum unless block
 				
-				types = @types ||= compile(@entries)
+				types = self.types
 				
 				if types.instance_of?(Any)
 					types.each(&block)
@@ -211,7 +211,7 @@ module Protocol
 			# The number of canonical membership ranges.
 			# @returns [Integer]
 			def size
-				types = @types ||= compile(@entries)
+				types = self.types
 				
 				if types.instance_of?(Any)
 					return types.size
@@ -225,24 +225,20 @@ module Protocol
 			# Whether the set contains no media ranges.
 			# @returns [Boolean]
 			def empty?
-				types = @types ||= compile(@entries)
-				
-				if types.instance_of?(Any)
-					return types.empty?
-				end
-				
 				return types.empty?
 			end
 			
 			# Whether this set matches every media range.
 			# @returns [Boolean]
 			def universal?
-				types = @types ||= compile(@entries)
-				
 				return types.instance_of?(Any)
 			end
 			
 			private
+			
+			def types
+				return @types ||= compile(@entries)
+			end
 			
 			def compile(media_ranges)
 				types = {}

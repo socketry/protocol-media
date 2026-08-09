@@ -26,7 +26,7 @@ module Protocol
 			# Freezing the map compiles the entries into an efficient immutable index.
 			#
 			# @parameter entries [Enumerable] The keyed media type entries.
-			def initialize(entries = [])
+			def initialize(entries = {})
 				@entries = {}
 				@index = nil
 				
@@ -52,10 +52,10 @@ module Protocol
 			def freeze
 				return self if frozen?
 				
-				@index ||= compile(@entries)
+				index = self.index
 				@entries = nil
 				
-				@index.freeze
+				index.freeze
 				
 				return super
 			end
@@ -86,9 +86,12 @@ module Protocol
 			
 			def lookup(media_range)
 				media_range = Range.build(media_range.type, media_range.subtype)
-				index = @index ||= compile(@entries)
 				
 				return index[media_range.name]
+			end
+			
+			def index
+				return @index ||= compile(@entries)
 			end
 			
 			def compile(entries)
