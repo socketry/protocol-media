@@ -22,26 +22,36 @@ describe Protocol::Media::Map do
 	it "constructs immutable maps from keyed entries" do
 		expect(map).to be(:frozen?)
 		expect(subject.for(map)).to be(:equal?, map)
-		expect{map["application/xml"] = :xml}.to raise_exception(NoMethodError)
+		expect{map["application/xml"] = :xml}.to raise_exception(FrozenError)
 	end
 	
-	it "constructs immutable maps with a builder" do
-		map = subject.build do |builder|
-			builder["application/json"] = :json
-		end
+	it "supports incremental creation" do
+		map = subject.new
+		map["application/json"] = :json
+		map["text/plain"] = :plain
 		
+		expect(map["text/*"]).to be == :plain
+		expect(map.freeze).to be(:equal?, map)
 		expect(map["application/json"]).to be == :json
-		expect(map).to be(:frozen?)
+		expect{map["image/png"] = :png}.to raise_exception(FrozenError)
 	end
 	
-	it "relinquishes the builder index when built" do
-		builder = subject::Builder.new
-		builder["application/json"] = :json
-		map = builder.build
+	it "invalidates its lookup cache when mutated" do
+		map = subject.new
 		
-		expect{builder["text/plain"] = :plain}.to raise_exception(FrozenError)
+		expect(map["application/json"]).to be_nil
+		
+		map["application/json"] = :json
+		
 		expect(map["application/json"]).to be == :json
-		expect(map).to be(:frozen?)
+	end
+	
+	it "does not expose a builder" do
+		expect{subject::Builder}.to raise_exception(NameError)
+	end
+	
+	it "does not provide a block builder" do
+		expect(subject).not.to be(:respond_to?, :build)
 	end
 	
 	it "looks up exact media types" do
@@ -65,13 +75,24 @@ describe Protocol::Media::Map do
 	end
 	
 	it "replaces an existing type/subtype registration" do
-		map = subject.build do |builder|
-			builder[json_type] = :json
-			builder[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
-		end
+		map = subject.new
+		map[json_type] = :json
+		map[Protocol::Media::Range.parse("application/json; version=2")] = :versioned_json
+		map.freeze
 		
 		expect(map[json_type]).to be == :versioned_json
+		expect(map["application/*"]).to be == :versioned_json
+		expect(map["*/*"]).to be == :versioned_json
+	end
+	
+	it "keeps the first distinct registration for wildcard queries" do
+		map = subject.new
+		map["application/json"] = :json
+		map["application/pdf"] = :pdf
+		map.freeze
+		
 		expect(map["application/*"]).to be == :json
+		expect(map["*/*"]).to be == :json
 	end
 	
 	it "rejects wildcard registrations" do

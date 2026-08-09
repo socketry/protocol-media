@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+  - Replace media map and set builders with mutable collections that can be frozen after construction.
+
 ## v0.2.1
 
   - Introduce `Protocol::Media::Set` for compatible media range membership.

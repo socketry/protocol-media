@@ -98,13 +98,13 @@ accepted.include?(media_type)
 # => true
 ```
 
-Strings are parsed with {ruby Protocol::Media::Range.for}. Sets are immutable and parameters do not affect membership:
+Strings are parsed with {ruby Protocol::Media::Range.for}. Sets can also be constructed incrementally and frozen. Parameters do not affect membership:
 
 ``` ruby
-accepted = Protocol::Media::Set.build do |builder|
-	builder << "image/*"
-	builder << "text/plain"
-end
+accepted = Protocol::Media::Set.new
+accepted << "image/*"
+accepted << "text/plain"
+accepted.freeze
 
 accepted.include?("text/plain; charset=utf-8")
 # => true
@@ -120,10 +120,10 @@ Use {ruby Protocol::Media::Map} when an application supports several representat
 require "json"
 require "protocol/media/map"
 
-renderers = Protocol::Media::Map.build do |builder|
-	builder["application/json"] = ->(record){JSON.generate(record)}
-	builder["text/plain"] = ->(record){record.inspect}
-end
+renderers = Protocol::Media::Map.new
+renderers["application/json"] = ->(record){JSON.generate(record)}
+renderers["text/plain"] = ->(record){record.inspect}
+renderers.freeze
 
 renderer = renderers["text/*"]
 renderer.call({id: 10, name: "Example"})
