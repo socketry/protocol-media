@@ -15,29 +15,39 @@ describe Protocol::Media::Set do
 		expect{subject::ANY}.to raise_exception(NameError)
 	end
 	
+	it "does not expose a builder" do
+		expect{subject::Builder}.to raise_exception(NameError)
+	end
+	
+	it "does not provide a block builder" do
+		expect(subject).not.to be(:respond_to?, :build)
+	end
+	
 	it "constructs immutable sets from ranges" do
 		expect(set).to be(:frozen?)
 		expect(subject.for(set)).to be(:equal?, set)
-		expect{set << "text/plain"}.to raise_exception(NoMethodError)
+		expect{set << "text/plain"}.to raise_exception(FrozenError)
 	end
 	
-	it "constructs immutable sets with a builder" do
-		set = subject.build do |builder|
-			builder << "application/json"
-		end
+	it "supports incremental creation" do
+		set = subject.new
+		set << "application/json"
+		set << "text/*"
 		
+		expect(set).to be(:include?, "text/plain")
+		expect(set.freeze).to be(:equal?, set)
 		expect(set).to be(:include?, "application/json")
-		expect(set).to be(:frozen?)
+		expect{set << "image/png"}.to raise_exception(FrozenError)
 	end
 	
-	it "relinquishes the builder index when built" do
-		builder = subject::Builder.new
-		builder << "application/json"
-		set = builder.build
+	it "invalidates its lookup cache when mutated" do
+		set = subject.new
 		
-		expect{builder << "text/plain"}.to raise_exception(FrozenError)
+		expect(set).not.to be(:include?, "application/json")
+		
+		set << "application/json"
+		
 		expect(set).to be(:include?, "application/json")
-		expect(set).to be(:frozen?)
 	end
 	
 	it "matches compatible media types" do
@@ -55,8 +65,24 @@ describe Protocol::Media::Set do
 		expect(subject.for(["*/*"])).to be(:equal?, set)
 		expect(subject.for(set)).to be(:equal?, set)
 		expect(set).to be(:frozen?)
+		expect(set).to be(:universal?)
 		expect(set).to be(:include?, "application/json")
 		expect(set).to be(:include?, "text/*")
+		expect(set).not.to be(:empty?)
+	end
+	
+	it "distinguishes wildcard compatibility from universal membership" do
+		set = subject.new(["image/png"])
+		
+		expect(set).to be(:include?, "*/*")
+		expect(set).not.to be(:universal?)
+		
+		set << "*/*"
+		
+		expect(set).to be(:universal?)
+		expect(set).to be(:include?, "text/plain")
+		expect(set.map(&:name)).to be == ["*/*"]
+		expect(set.size).to be == 1
 		expect(set).not.to be(:empty?)
 	end
 	

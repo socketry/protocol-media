@@ -7,48 +7,8 @@ require_relative "type"
 
 module Protocol
 	module Media
-		# An immutable map from concrete media types to objects for range-based lookup.
+		# A map from concrete media types to objects for range-based lookup.
 		class Map
-			# Incrementally constructs an immutable media map.
-			class Builder
-				# Initialize an empty media map builder.
-				def initialize
-					@index = {}
-				end
-				
-				# Associate a concrete media type with an object.
-				#
-				# @parameter media_type [String | Object] The concrete media type or compatible object.
-				# @parameter object [Object] The object associated with the media type.
-				def []=(media_type, object)
-					media_type = Type.for(media_type)
-					
-					# Preserve the first registration as the default for wildcard queries:
-					@index["*/*"] ||= object
-					@index["#{media_type.type}/*"] ||= object
-					@index[media_type.name] = object
-				end
-				
-				# Compile the current registrations into an immutable map.
-				# @returns [Map] The immutable media map.
-				def build
-					return Map.new(@index).freeze
-				end
-			end
-			
-			# Construct an immutable map using a builder.
-			# @yields {|builder| ...} The mutable builder.
-			# @returns [Map] The immutable media map.
-			def self.build
-				builder = Builder.new
-				
-				if block_given?
-					yield builder
-				end
-				
-				return builder.build
-			end
-			
 			# Convert keyed entries into a media map.
 			#
 			# Existing maps are returned unchanged, including their frozen state.
@@ -58,26 +18,42 @@ module Protocol
 			def self.for(entries)
 				return entries if entries.instance_of?(self)
 				
-				return build do |builder|
-					entries.each do |media_type, object|
-						builder[media_type] = object
-					end
+				return new(entries).freeze
+			end
+			
+			# Initialize a new mutable media map with the given entries.
+			#
+			# Freezing the map compiles the entries into an efficient immutable index.
+			#
+			# @parameter entries [Enumerable] The keyed media type entries.
+			def initialize(entries = [])
+				@entries = {}
+				@index = nil
+				
+				entries.each do |media_type, object|
+					self[media_type] = object
 				end
 			end
 			
-			# Initialize a new media map with a given index.
-			#
-			# The index is retained without copying or freezing it.
-			#
-			# @parameter index [Hash] The keyed media range entries.
-			def initialize(index)
-				@index = index
+			# Associate a concrete media type with an object.
+			# @parameter media_type [String | Object] The concrete media type or compatible object.
+			# @parameter object [Object] The object associated with the media type.
+			def []=(media_type, object)
+				raise FrozenError, "can't modify frozen #{self.class}" if frozen?
+				
+				media_type = Type.for(media_type)
+				
+				@entries[media_type.name] = [media_type, object]
+				@index = nil
 			end
 			
-			# Freeze the media map and its index.
+			# Freeze the media map, compiling its entries into an efficient index.
 			# @returns [self]
 			def freeze
 				return self if frozen?
+				
+				@index ||= compile(@entries)
+				@entries = nil
 				
 				@index.freeze
 				
@@ -110,7 +86,22 @@ module Protocol
 			
 			def lookup(media_range)
 				media_range = Range.build(media_range.type, media_range.subtype)
-				return @index[media_range.name]
+				index = @index ||= compile(@entries)
+				
+				return index[media_range.name]
+			end
+			
+			def compile(entries)
+				index = {}
+				
+				entries.each_value do |media_type, object|
+					# Preserve the first registration as the default for wildcard queries:
+					index["*/*"] ||= object
+					index["#{media_type.type}/*"] ||= object
+					index[media_type.name] = object
+				end
+				
+				return index
 			end
 		end
 	end

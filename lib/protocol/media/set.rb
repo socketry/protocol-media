@@ -9,7 +9,7 @@ require "set"
 
 module Protocol
 	module Media
-		# An immutable set of compatible media ranges.
+		# A set of compatible media ranges.
 		class Set
 			include Enumerable
 			
@@ -56,72 +56,17 @@ module Protocol
 				def empty?
 					return false
 				end
+				
+				# Whether this set matches every media range.
+				# @returns [Boolean]
+				def universal?
+					return true
+				end
 			end
 			
 			ANY = Any.new.freeze
 			
 			private_constant :Any, :ANY
-			
-			# Incrementally constructs an immutable media set.
-			class Builder
-				# Initialize an empty media set builder.
-				def initialize
-					@types = {}
-				end
-				
-				# Add a media range to the set under construction.
-				# @parameter media_range [String | Object] The media range or compatible object.
-				# @returns [self]
-				def add(media_range)
-					if @types.instance_of?(Any)
-						return self
-					end
-					
-					media_range = Range.for(media_range)
-					media_range = Range.build(media_range.type, media_range.subtype)
-					type = media_range.type.freeze
-					subtype = media_range.subtype.freeze
-					
-					if type == "*"
-						@types = ANY
-					elsif subtype == "*"
-						@types[type] = ANY
-					elsif subtypes = @types[type]
-						unless subtypes.instance_of?(Any)
-							subtypes.add(subtype)
-						end
-					else
-						@types[type] = ::Set.new([subtype])
-					end
-					
-					return self
-				end
-				
-				alias << add
-				
-				# Compile the current ranges into an immutable set.
-				# @returns [Set] The immutable media set.
-				def build
-					if @types.instance_of?(Any)
-						return @types
-					end
-					
-					return Set.new(@types).freeze
-				end
-			end
-			
-			# Construct an immutable set using a builder.
-			# @yields {|builder| ...} The mutable builder.
-			# @returns [Set] The immutable media set.
-			def self.build
-				builder = Builder.new
-				
-				if block_given?
-					yield builder
-				end
-				
-				return builder.build
-			end
 			
 			# Convert a sequence of ranges into a media set.
 			#
@@ -140,29 +85,58 @@ module Protocol
 					return media_ranges
 				end
 				
-				return build do |builder|
-					media_ranges.each do |media_range|
-						builder << media_range
-					end
+				set = new(media_ranges)
+				set.freeze
+				
+				if set.universal?
+					return ANY
+				end
+				
+				return set
+			end
+			
+			# Initialize a new mutable media set with the given media ranges.
+			#
+			# Freezing the set compiles the ranges into an efficient immutable index.
+			#
+			# @parameter media_ranges [Enumerable] The existing media ranges.
+			def initialize(media_ranges = [])
+				@entries = []
+				@types = nil
+				
+				media_ranges.each do |media_range|
+					add(media_range)
 				end
 			end
 			
-			# Initialize a new media set with the given type index.
-			#
-			# The index is retained without copying or freezing it.
-			#
-			# @parameter types [Hash] The indexed media ranges.
-			def initialize(types)
-				@types = types
+			# Add a media range to the set under construction.
+			# @parameter media_range [String | Object] The media range or compatible object.
+			# @returns [self]
+			def add(media_range)
+				raise FrozenError, "can't modify frozen #{self.class}" if frozen?
+				
+				media_range = normalize(media_range)
+				
+				@entries << media_range
+				@types = nil
+				
+				return self
 			end
 			
-			# Freeze the media set and its index.
+			alias << add
+			
+			# Freeze the media set, compiling its ranges into an efficient index.
 			# @returns [self]
 			def freeze
 				return self if frozen?
 				
-				@types.each_value(&:freeze)
-				@types.freeze
+				@types ||= compile(@entries)
+				@entries = nil
+				
+				unless @types.instance_of?(Any)
+					@types.each_value(&:freeze)
+					@types.freeze
+				end
 				
 				return super
 			end
@@ -174,13 +148,18 @@ module Protocol
 				media_range = normalize(media_range)
 				type = media_range.type
 				subtype = media_range.subtype
+				types = @types ||= compile(@entries)
+				
+				if types.instance_of?(Any)
+					return true
+				end
 				
 				# A wildcard type matches any non-empty set:
 				if type == "*"
-					return !@types.empty?
+					return !types.empty?
 				end
 				
-				subtypes = @types[type]
+				subtypes = types[type]
 				
 				# An unknown type cannot match:
 				unless subtypes
@@ -206,10 +185,17 @@ module Protocol
 			# Enumerate the canonical media ranges which define membership.
 			# @yields {|media_range| ...} Each canonical media range.
 			# @returns [Enumerator | self]
-			def each
-				return to_enum unless block_given?
+			def each(&block)
+				return to_enum unless block
 				
-				@types.each do |type, subtypes|
+				types = @types ||= compile(@entries)
+				
+				if types.instance_of?(Any)
+					types.each(&block)
+					return self
+				end
+				
+				types.each do |type, subtypes|
 					if subtypes.instance_of?(Any)
 						yield Range.new(type, "*")
 					else
@@ -225,7 +211,13 @@ module Protocol
 			# The number of canonical membership ranges.
 			# @returns [Integer]
 			def size
-				return @types.sum do |_type, subtypes|
+				types = @types ||= compile(@entries)
+				
+				if types.instance_of?(Any)
+					return types.size
+				end
+				
+				return types.sum do |_type, subtypes|
 					subtypes.size
 				end
 			end
@@ -233,10 +225,47 @@ module Protocol
 			# Whether the set contains no media ranges.
 			# @returns [Boolean]
 			def empty?
-				return @types.empty?
+				types = @types ||= compile(@entries)
+				
+				if types.instance_of?(Any)
+					return types.empty?
+				end
+				
+				return types.empty?
+			end
+			
+			# Whether this set matches every media range.
+			# @returns [Boolean]
+			def universal?
+				types = @types ||= compile(@entries)
+				
+				return types.instance_of?(Any)
 			end
 			
 			private
+			
+			def compile(media_ranges)
+				types = {}
+				
+				media_ranges.each do |media_range|
+					type = media_range.type.freeze
+					subtype = media_range.subtype.freeze
+					
+					if type == "*"
+						return ANY
+					elsif subtype == "*"
+						types[type] = ANY
+					elsif subtypes = types[type]
+						unless subtypes.instance_of?(Any)
+							subtypes.add(subtype)
+						end
+					else
+						types[type] = ::Set.new([subtype])
+					end
+				end
+				
+				return types
+			end
 			
 			def normalize(media_range)
 				media_range = Range.for(media_range)
